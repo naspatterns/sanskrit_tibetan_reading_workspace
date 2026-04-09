@@ -1,0 +1,10 @@
+build/
+data-source/xdxf/
+data-source/apple-converted/
+data-source/bilex/
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+web/dict.sqlite
+web/bilex.sqlite

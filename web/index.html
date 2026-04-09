@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Sanskrit–Tibetan Reading Workspace</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>Sanskrit–Tibetan Reading Workspace</h1>
+    <span id="status" class="status"></span>
+  </div>
+  <div id="search-section">
+    <input id="q" type="text" placeholder="단어 입력 — IAST: dharma, ātman / Wylie: chos, sangs rgyas" autofocus>
+    <button id="go">검색</button>
+  </div>
+</header>
+
+<main>
+  <aside id="sidebar"></aside>
+  <section id="results">
+    <p class="hint">단어를 입력해 검색해 보세요.</p>
+  </section>
+</main>
+
+<script src="vendor/index.js"></script>
+<script src="dictnames.js?v=4"></script>
+<script src="lookup.js?v=4"></script>
+<script src="bilex.js?v=4"></script>
+<script src="app.js?v=4"></script>
+</body>
+</html>

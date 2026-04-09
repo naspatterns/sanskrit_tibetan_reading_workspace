@@ -1,0 +1,335 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: -apple-system, "Helvetica Neue", "Apple SD Gothic Neo", sans-serif;
+  color: #222;
+  background: #fafaf7;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 10;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  padding: 0.6rem 1rem 0.7rem;
+}
+header .title { display: flex; align-items: baseline; gap: 0.8rem; }
+header h1 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+.status { font-size: 0.75rem; color: #999; }
+
+#search-section { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+#q {
+  flex: 1; padding: 0.5rem 0.7rem; font-size: 0.95rem;
+  border: 1px solid #ccc; border-radius: 4px;
+  font-family: inherit;
+}
+#q:focus { outline: none; border-color: #888; }
+#go {
+  padding: 0.5rem 1rem; font-size: 0.9rem; cursor: pointer;
+  border: 1px solid #888; background: #fff; border-radius: 4px;
+}
+#go:hover { background: #f0f0ec; }
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+main {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 0;
+  height: calc(100vh - 95px);
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────── */
+#sidebar {
+  border-right: 1px solid #e4e4e0;
+  background: #f4f4ef;
+  overflow-y: auto;
+  padding: 0.6rem 0.4rem;
+  font-size: 0.82rem;
+}
+
+/* Filter pills */
+.side-filters {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 0.3rem 0.2rem 0.5rem;
+  border-bottom: 1px solid #e0ddd5;
+  margin-bottom: 0.5rem;
+}
+.filter-pill {
+  font-size: 0.68rem; padding: 2px 8px;
+  border-radius: 10px; border: 1px solid #ccc;
+  background: #fff; color: #777; cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-pill.active {
+  background: var(--pill-color, #888);
+  color: #fff;
+  border-color: var(--pill-color, #888);
+}
+.filter-pill:hover { opacity: 0.85; }
+
+.side-total { color: #666; padding: 0.2rem 0.4rem 0.6rem; font-weight: 600; }
+.side-group-title {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: #999; margin: 0.6rem 0.4rem 0.2rem;
+}
+.side-link {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.25rem 0.4rem; border-radius: 3px;
+  text-decoration: none; color: #333;
+  gap: 0.4rem;
+}
+.side-link:hover { background: #e4e4dc; }
+.side-name {
+  flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.side-count { color: #888; font-size: 0.72rem; flex-shrink: 0; }
+
+/* ── Results area ───────────────────────────────────────────────── */
+#results {
+  overflow-y: auto;
+  padding: 0.8rem 1.2rem 4rem;
+  scroll-padding-top: 0.5rem;
+}
+.hint { color: #888; font-size: 0.9rem; }
+.hint.error { color: #b33; }
+
+/* ── Zone A: Quick Answer ───────────────────────────────────────── */
+.zone-a {
+  background: #f7f5ed;
+  border: 1px solid #e4e0d0;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+}
+.qa-headword {
+  font-size: 1.2rem; font-weight: 700;
+  color: #1a3a5a;
+  margin-bottom: 0.3rem;
+}
+.qa-bilex {
+  font-size: 0.82rem;
+  color: #5a4a2a;
+  margin-bottom: 0.5rem;
+  padding: 0.2rem 0;
+}
+.qa-lines { margin: 0.3rem 0; }
+.qa-line {
+  display: flex; gap: 0.5rem; align-items: baseline;
+  padding: 0.2rem 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.qa-line:hover { background: #eeeadd; }
+.qa-dict-tag {
+  flex-shrink: 0;
+  font-size: 0.7rem; font-weight: 600;
+  color: #555;
+  border-left: 2px solid #999;
+  padding-left: 6px;
+  min-width: 80px;
+}
+.qa-snippet {
+  color: #444;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.qa-stats {
+  font-size: 0.72rem; color: #aaa;
+  margin-top: 0.4rem;
+}
+
+/* ── Zone B: Bilex (equivalents) ────────────────────────────────── */
+.bilex-block {
+  margin-bottom: 1rem;
+  background: #f0efe8;
+  border: 1px solid #d8d5c8;
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+}
+.bilex-header {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6a5d3a;
+}
+.bilex-count { font-weight: normal; color: #999; font-size: 0.75rem; }
+.bilex-entries { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; }
+.bilex-entry {
+  font-size: 0.85rem;
+  padding: 0.2rem 0.5rem;
+  background: #fff;
+  border-radius: 3px;
+  border: 1px solid #e4e0d0;
+  white-space: nowrap;
+}
+.bilex-entry.bilex-exact {
+  background: #fffbef;
+  border-color: #e0d49a;
+}
+.bilex-num { color: #aaa; font-size: 0.72rem; }
+.bilex-arrow { color: #bbb; font-size: 0.8rem; }
+.bilex-cat { color: #999; font-size: 0.72rem; }
+.bilex-link {
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+}
+.bilex-link:hover { text-decoration: underline; }
+.bilex-skt { color: #1a3a5a; }
+.bilex-tib { color: #5a1a3a; }
+
+/* ── Zone C: Display groups + dict blocks ───────────────────────── */
+.zone-c { margin-bottom: 1rem; }
+
+.display-group { margin-bottom: 0.8rem; }
+.display-group.dg-hidden { display: none; }
+
+.dg-header {
+  margin: 1rem 0 0.4rem; font-size: 0.78rem;
+  color: #777; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  border-left: 2px solid #ccc;
+  padding-left: 8px;
+}
+.dg-header:first-child { margin-top: 0; }
+
+.dict-block {
+  margin-bottom: 0.4rem;
+  background: #fff;
+  border: 1px solid #e4e4e0;
+  border-radius: 4px;
+}
+.dict-block.tier-1 { }
+.dict-block.tier-2 { }
+.dict-block.tier-3 .dict-label { color: #777; }
+
+.dict-head {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem; font-weight: 600;
+  display: flex; align-items: center; gap: 0.5rem;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  user-select: none;
+}
+.dict-head:hover { background: #f8f8f3; }
+.dict-block:has(.dict-entries) .dict-head { border-bottom-color: #eeeae0; }
+.arrow { color: #999; width: 0.8em; display: inline-block; }
+.dict-label { color: #333; }
+.dict-count { color: #aaa; font-weight: normal; font-size: 0.78rem; margin-left: auto; }
+
+.pin-btn {
+  font-size: 0.9rem;
+  color: #ccc;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.15s;
+}
+.pin-btn:hover { color: #e6a817; }
+.dict-block.pinned .pin-btn { color: #e6a817; }
+
+.dict-entries { padding: 0.3rem 0; }
+.entry {
+  padding: 0.5rem 0.9rem;
+  border-top: 1px solid #f1eee5;
+}
+.entry:first-child { border-top: none; }
+.entry.exact { background: #fffbef; }
+.entry .head {
+  font-weight: 600;
+  color: #1a3a5a;
+  margin-bottom: 0.2rem;
+  font-size: 0.95rem;
+}
+.entry .body {
+  font-size: 0.88rem;
+  color: #333;
+  word-wrap: break-word;
+}
+
+/* Tier 3 toggle */
+.tier3-toggle {
+  padding: 0.3rem 0.7rem;
+}
+.tier3-btn {
+  font-size: 0.78rem;
+  color: #888;
+  background: none;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+  width: 100%;
+}
+.tier3-btn:hover { background: #f4f4ef; color: #555; }
+
+/* ── Zone D: Partial match headword list ────────────────────────── */
+.zone-d {
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  background: #f8f7f2;
+  border: 1px solid #e4e0d8;
+  border-radius: 6px;
+}
+.zd-header {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
+}
+.zd-count { font-weight: normal; color: #999; font-size: 0.78rem; }
+.zd-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.1rem;
+}
+.zd-word {
+  display: inline-block;
+  font-size: 0.83rem;
+  color: #2a5a8a;
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.zd-word:hover {
+  background: #dde8f0;
+  text-decoration: underline;
+}
+.zd-word::after {
+  content: " \00b7";
+  color: #ccc;
+  margin-left: 2px;
+}
+.zd-word:last-child::after,
+.zd-word.zd-hidden + .zd-word:not(.zd-hidden)::after { }
+.zd-hidden { display: none; }
+.zd-n {
+  font-size: 0.6rem;
+  color: #aaa;
+  vertical-align: super;
+}
+.zd-more {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: #2a5a8a;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+.zd-more:hover { background: #eee; }
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  main { grid-template-columns: 1fr; }
+  #sidebar { display: none; }
+}
