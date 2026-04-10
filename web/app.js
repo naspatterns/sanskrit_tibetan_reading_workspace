@@ -1,10 +1,21 @@
-// app.js — Phase 2.5 UI: 4-zone results + tier grouping + progressive disclosure.
+// app.js — Phase 3 UI: search mode + reader mode with token click → lookup.
 
 const q = document.getElementById("q");
 const go = document.getElementById("go");
 const results = document.getElementById("results");
 const sidebar = document.getElementById("sidebar");
 const status = document.getElementById("status");
+
+// Mode elements
+const searchMode = document.getElementById("search-mode");
+const readerMode = document.getElementById("reader-mode");
+const vocabMode = document.getElementById("vocab-mode");
+const treeContent = document.getElementById("tree-content");
+const textBody = document.getElementById("text-body");
+const textTitle = document.getElementById("text-title");
+const lookupResults = document.getElementById("lookup-results");
+let currentMode = "search";
+let lastReaderTerm = ""; // Track last searched term in reader mode
 
 // ── User preferences (localStorage) ──────────────────────────────────
 const PREFS_KEY = "skt_tib_prefs";
@@ -597,16 +608,431 @@ async function search() {
 go.addEventListener("click", search);
 q.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
 
+// ── Mode switching ──────────────────────────────────────────────────
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll(".mode-tab").forEach((t) => {
+    t.classList.toggle("active", t.dataset.mode === mode);
+  });
+  searchMode.style.display = mode === "search" ? "" : "none";
+  readerMode.style.display = mode === "reader" ? "" : "none";
+  vocabMode.style.display = mode === "vocab" ? "" : "none";
+
+  // Update URL hash
+  if (mode === "reader") {
+    const path = window.Reader.getCurrentPath();
+    if (path) window.location.hash = "reader/" + path;
+    else window.location.hash = "reader";
+  } else if (mode === "vocab") {
+    window.location.hash = "vocab";
+    renderVocabList();
+  } else {
+    if (window.location.hash.startsWith("#reader") || window.location.hash.startsWith("#vocab"))
+      window.location.hash = "";
+  }
+}
+
+document.querySelectorAll(".mode-tab").forEach((tab) => {
+  tab.addEventListener("click", () => switchMode(tab.dataset.mode));
+});
+
+// ── Reader mode: lookup in side panel ───────────────────────────────
+
+async function readerSearch(term) {
+  if (!term) return;
+  lastReaderTerm = term;
+  q.value = term; // sync search box
+  lookupResults.innerHTML = `<p class="hint">검색 중...</p>`;
+
+  try {
+    const [rows, bilexTib, bilexSkt] = await Promise.all([
+      window.Lookup.search(term, { limit: 500 }),
+      window.Bilex ? window.Bilex.lookupTib(term) : [],
+      window.Bilex ? window.Bilex.lookupSkt(term) : [],
+    ]);
+
+    // Merge bilex
+    const bilexSeen = new Set();
+    const bilexRows = [];
+    for (const r of [...bilexTib, ...bilexSkt]) {
+      if (!bilexSeen.has(r.entry_num)) {
+        bilexSeen.add(r.entry_num);
+        bilexRows.push(r);
+      }
+    }
+    bilexRows.sort((a, b) => (b.exact || 0) - (a.exact || 0) || a.entry_num - b.entry_num);
+
+    if (!rows.length && !bilexRows.length) {
+      lookupResults.innerHTML = `<p class="hint"><b>${escapeHtml(term)}</b> — 결과 없음.</p>`;
+      return;
+    }
+
+    const { exact, partial } = classifyRows(rows);
+    const displayGroups = groupExactByDisplayGroup(exact);
+
+    // Build meaning summary for vocab card
+    const meaningSnippets = [];
+    for (const r of exact.slice(0, 3)) {
+      const body = (r.body || "").replace(/\n/g, " ").trim();
+      if (body) meaningSnippets.push(body.length > 80 ? body.slice(0, 80) + "…" : body);
+    }
+    const autoMeaning = meaningSnippets.join(" / ");
+
+    // Render compact results for side panel
+    const html = [
+      renderVocabSaveBtn(term, autoMeaning),
+      renderZoneA(exact, bilexRows, term),
+      renderZoneB(bilexRows),
+      renderZoneC(displayGroups),
+    ].join("");
+
+    lookupResults.innerHTML = html;
+
+    // Wire vocab save button
+    wireVocabSaveBtn();
+
+    // Wire events within lookup panel
+    lookupResults.querySelectorAll(".dict-head").forEach((h) => {
+      h.addEventListener("click", (e) => {
+        if (e.target.closest(".pin-btn")) return;
+        const dict = h.dataset.dict;
+        const wasOpen = !!h.closest(".dict-block").querySelector(".dict-entries");
+        collapseOverride.set(dict, wasOpen);
+        readerSearch(term); // re-render
+      });
+    });
+    lookupResults.querySelectorAll(".pin-btn").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        togglePin(el.dataset.dict);
+        readerSearch(term);
+      });
+    });
+    lookupResults.querySelectorAll(".tier3-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const wrapper = btn.closest(".tier3-toggle");
+        const content = wrapper.nextElementSibling;
+        if (content && content.classList.contains("tier3-content")) {
+          const visible = content.style.display !== "none";
+          content.style.display = visible ? "none" : "block";
+        }
+      });
+    });
+    lookupResults.querySelectorAll(".bilex-link").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        const t = el.dataset.term;
+        if (t) readerSearch(t);
+      });
+    });
+    lookupResults.querySelectorAll(".qa-line").forEach((el) => {
+      el.addEventListener("click", () => {
+        const dict = el.dataset.dict;
+        const target = lookupResults.querySelector("#dict-" + cssId(dict));
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  } catch (e) {
+    console.error(e);
+    lookupResults.innerHTML = `<p class="hint error">오류: ${escapeHtml(String(e))}</p>`;
+  }
+}
+
+// ── Reader mode: file loading ───────────────────────────────────────
+
+async function openTextFile(path) {
+  textTitle.textContent = path;
+  textBody.innerHTML = `<p class="hint">로딩 중...</p>`;
+
+  try {
+    const text = await window.Reader.loadFile(path);
+    window.Reader.renderText(textBody, text, path, (searchTerm) => {
+      readerSearch(searchTerm);
+    });
+    // Update tree highlight + wire upload/delete
+    renderFileTree();
+    // Update URL hash
+    window.location.hash = "reader/" + path;
+  } catch (e) {
+    textBody.innerHTML = `<p class="hint error">로딩 실패: ${escapeHtml(String(e))}</p>`;
+  }
+}
+
+function renderFileTree() {
+  window.Reader.renderTree(treeContent, openTextFile, (key) => {
+    if (!confirm("이 텍스트를 삭제하시겠습니까?")) return;
+    window.Reader.removeUpload(key);
+    // If currently viewing deleted file, clear text panel
+    if (window.Reader.getCurrentPath() === key) {
+      textTitle.textContent = "파일을 선택하세요";
+      textBody.innerHTML = `<p class="hint">좌측 목록에서 텍스트를 선택하면 여기에 표시됩니다.</p>`;
+    }
+    renderFileTree();
+  });
+
+  // Wire upload button
+  const uploadBtn = document.getElementById("upload-btn-trigger");
+  if (uploadBtn) {
+    uploadBtn.addEventListener("click", () => {
+      window.Reader.showUploadDialog((key) => {
+        renderFileTree();
+        openTextFile(key);
+      });
+    });
+  }
+}
+
+// ── Vocab card: save button in lookup panel ─────────────────────────
+
+function renderVocabSaveBtn(term, autoMeaning) {
+  return `<div class="vocab-save-bar">
+    <button class="vocab-save-btn" data-term="${escapeHtml(term)}" data-meaning="${escapeHtml(autoMeaning)}">+ 어휘 카드 저장</button>
+  </div>`;
+}
+
+function wireVocabSaveBtn() {
+  lookupResults.querySelectorAll(".vocab-save-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const term = btn.dataset.term;
+      const meaning = btn.dataset.meaning;
+      const path = window.Reader ? window.Reader.getCurrentPath() : "";
+      const lang = path ? window.Reader.detectLang(path) : "sa";
+
+      // Get context: find the active token's line
+      let context = "";
+      let lineNum = null;
+      const activeTok = textBody.querySelector(".token-active");
+      if (activeTok) {
+        const line = activeTok.closest(".text-line");
+        if (line) {
+          context = line.textContent.trim();
+          lineNum = parseInt(line.dataset.line, 10) + 1;
+        }
+      }
+
+      try {
+        await window.Vocab.add({
+          headword: term,
+          meaning: meaning,
+          lang: lang,
+          source: path,
+          lineNum: lineNum,
+          context: context,
+          note: "",
+          status: "new",
+        });
+        btn.textContent = "✓ 저장됨";
+        btn.disabled = true;
+        btn.classList.add("saved");
+      } catch (e) {
+        console.error("Vocab save error:", e);
+        btn.textContent = "저장 실패";
+      }
+    });
+  });
+}
+
+// ── Vocab mode: list rendering ──────────────────────────────────────
+
+let vocabFilterStatus = "all";
+
+async function renderVocabList(query) {
+  const vocabList = document.getElementById("vocab-list");
+  const vocabStats = document.getElementById("vocab-stats");
+  if (!vocabList) return;
+
+  let cards;
+  if (query) {
+    cards = await window.Vocab.search(query);
+  } else {
+    cards = await window.Vocab.getAll();
+  }
+
+  // Apply status filter
+  if (vocabFilterStatus !== "all") {
+    cards = cards.filter((c) => c.status === vocabFilterStatus);
+  }
+
+  // Stats
+  const total = await window.Vocab.count();
+  const newCount = cards.filter((c) => c.status === "new").length;
+  const learningCount = cards.filter((c) => c.status === "learning").length;
+  const knownCount = cards.filter((c) => c.status === "known").length;
+  vocabStats.innerHTML = `<span>총 ${total}개 카드</span>`;
+
+  if (!cards.length) {
+    vocabList.innerHTML = `<p class="hint">
+      ${query ? `"${escapeHtml(query)}" 검색 결과 없음.` : "어휘 카드가 없습니다. 독해 모드에서 단어를 검색한 후 저장하세요."}
+    </p>`;
+    return;
+  }
+
+  const parts = [];
+  for (const card of cards) {
+    const langTag = card.lang === "bo" ? "Tib" : "Skt";
+    const statusLabel = { new: "새 단어", learning: "학습 중", known: "완료" }[card.status] || card.status;
+    const statusCls = "vocab-status-" + card.status;
+    const date = new Date(card.ts).toLocaleDateString("ko-KR");
+
+    parts.push(`<div class="vocab-card" data-id="${card.id}">
+      <div class="vocab-card-header">
+        <span class="vocab-headword">${escapeHtml(card.headword)}</span>
+        <span class="vocab-lang-tag">${langTag}</span>
+        <span class="vocab-status ${statusCls}" data-id="${card.id}">${statusLabel}</span>
+        <span class="vocab-date">${date}</span>
+      </div>
+      <div class="vocab-card-meaning">${escapeHtml(card.meaning)}</div>
+      ${card.context ? `<div class="vocab-card-context">${escapeHtml(card.context)}</div>` : ""}
+      ${card.source ? `<div class="vocab-card-source">${escapeHtml(card.source)}${card.lineNum ? " (행 " + card.lineNum + ")" : ""}</div>` : ""}
+      ${card.note ? `<div class="vocab-card-note">${escapeHtml(card.note)}</div>` : ""}
+      <div class="vocab-card-actions">
+        <select class="vocab-status-select" data-id="${card.id}">
+          <option value="new"${card.status === "new" ? " selected" : ""}>새 단어</option>
+          <option value="learning"${card.status === "learning" ? " selected" : ""}>학습 중</option>
+          <option value="known"${card.status === "known" ? " selected" : ""}>완료</option>
+        </select>
+        <button class="vocab-note-btn" data-id="${card.id}" title="메모 편집">✏️</button>
+        <button class="vocab-search-btn" data-term="${escapeHtml(card.headword)}" title="사전 검색">🔍</button>
+        <button class="vocab-delete-btn" data-id="${card.id}" title="삭제">🗑️</button>
+      </div>
+    </div>`);
+  }
+
+  vocabList.innerHTML = parts.join("");
+  wireVocabCardEvents();
+}
+
+function wireVocabCardEvents() {
+  const vocabList = document.getElementById("vocab-list");
+
+  // Status change
+  vocabList.querySelectorAll(".vocab-status-select").forEach((sel) => {
+    sel.addEventListener("change", async () => {
+      const id = parseInt(sel.dataset.id, 10);
+      await window.Vocab.update(id, { status: sel.value });
+      renderVocabList(document.getElementById("vocab-search").value.trim());
+    });
+  });
+
+  // Delete
+  vocabList.querySelectorAll(".vocab-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("이 카드를 삭제하시겠습니까?")) return;
+      const id = parseInt(btn.dataset.id, 10);
+      await window.Vocab.remove(id);
+      renderVocabList(document.getElementById("vocab-search").value.trim());
+    });
+  });
+
+  // Search in dict
+  vocabList.querySelectorAll(".vocab-search-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const term = btn.dataset.term;
+      q.value = term;
+      switchMode("search");
+      search();
+    });
+  });
+
+  // Edit note
+  vocabList.querySelectorAll(".vocab-note-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = parseInt(btn.dataset.id, 10);
+      const card = btn.closest(".vocab-card");
+      const existingNote = card.querySelector(".vocab-card-note")?.textContent || "";
+      const newNote = prompt("메모:", existingNote);
+      if (newNote === null) return; // cancelled
+      await window.Vocab.update(id, { note: newNote });
+      renderVocabList(document.getElementById("vocab-search").value.trim());
+    });
+  });
+}
+
+// Wire vocab toolbar events
+(function wireVocabToolbar() {
+  const vocabSearch = document.getElementById("vocab-search");
+  if (vocabSearch) {
+    let debounce = null;
+    vocabSearch.addEventListener("input", () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => renderVocabList(vocabSearch.value.trim()), 200);
+    });
+  }
+
+  document.querySelectorAll(".vocab-filter-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".vocab-filter-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      vocabFilterStatus = btn.dataset.status;
+      const q = document.getElementById("vocab-search");
+      renderVocabList(q ? q.value.trim() : "");
+    });
+  });
+
+  const exportBtn = document.getElementById("vocab-export");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", async () => {
+      const cards = await window.Vocab.exportAll();
+      const blob = new Blob([JSON.stringify(cards, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "vocab_cards_" + new Date().toISOString().slice(0, 10) + ".json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  const importBtn = document.getElementById("vocab-import");
+  const importFile = document.getElementById("vocab-import-file");
+  if (importBtn && importFile) {
+    importBtn.addEventListener("click", () => importFile.click());
+    importFile.addEventListener("change", async () => {
+      const file = importFile.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const cards = JSON.parse(text);
+        if (!Array.isArray(cards)) throw new Error("JSON 배열이 아닙니다");
+        const count = await window.Vocab.importCards(cards);
+        alert(`${count}개 카드를 가져왔습니다.`);
+        renderVocabList();
+      } catch (e) {
+        alert("가져오기 실패: " + e.message);
+      }
+      importFile.value = "";
+    });
+  }
+})();
+
 // ── Initialize ───────────────────────────────────────────────────────
 
-setStatus("\uc0ac\uc804 DB \ucd08\uae30\ud654 \uc911...");
+setStatus("사전 DB 초기화 중...");
 Promise.all([
   window.Lookup.init(),
   window.Bilex ? window.Bilex.init() : Promise.resolve(),
+  window.Reader ? window.Reader.init() : Promise.resolve(),
+  window.Vocab ? window.Vocab.init() : Promise.resolve(),
 ]).then(() => {
   const n = Object.keys(window.Lookup.dicts()).length;
-  setStatus(`${n}\uac1c \uc0ac\uc804 + \ub300\uc5ed\uc5b4 DB \uc900\ube44 \uc644\ub8cc`);
+  setStatus(`${n}개 사전 + 대역어 DB 준비 완료`);
+
+  // Render file tree
+  if (window.Reader) {
+    renderFileTree();
+  }
+
+  // Handle URL hash for deep linking
+  const hash = window.location.hash;
+  if (hash.startsWith("#reader")) {
+    switchMode("reader");
+    const path = hash.replace("#reader/", "").replace("#reader", "");
+    if (path) openTextFile(path);
+  } else if (hash === "#vocab") {
+    switchMode("vocab");
+  }
 }).catch((e) => {
   console.error(e);
-  setStatus("\ucd08\uae30\ud654 \uc2e4\ud328: " + e);
+  setStatus("초기화 실패: " + e);
 });

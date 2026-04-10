@@ -14,7 +14,7 @@
 
 ---
 
-## 2. 현재 상태 (Phase 2.5 완료 — 검색 UI 개편)
+## 2. 현재 상태 (Phase 4a 완료 — 어휘 카드)
 
 | 항목 | 값 |
 |---|---|
@@ -24,7 +24,7 @@
 | bilex.sqlite 크기 | **2.5 MB** (Mahāvyutpatti 9,568 대역어) |
 | Apple 사전 | Bod rgya tshig mdzod chen mo (53,466항목, Tibetan Unicode) |
 | FTS5 인덱스 | `entries_fts` (dict), `bilex_fts` (bilex) |
-| 웹 UI | **4존 구조** + 6그룹 분류 + tier 기반 접기/펼치기 + 즐겨찾기 |
+| 웹 UI | **3-모드** (검색/독해/어휘) + 4존 구조 + 6그룹 + 어휘 카드 |
 
 ### Phase 2.5 검색 UI 개편 상세
 
@@ -45,6 +45,75 @@
 - 그룹별 사전 네비게이션
 
 **효과**: `chos` 검색 시 기존 800건 전문 표시 → 정확 67건 전문 + 465건 headword 리스트. 스크롤 90%+ 감소.
+
+### Phase 3 독해 모드 + 텍스트 업로드
+
+**듀얼 모드 UI:**
+- 검색 모드 / 독해 모드 탭 전환
+- URL 해시 딥링킹 (`#reader/path/to/file`)
+
+**독해 모드 3-패널 레이아웃:**
+- 좌측 (200px): 파일 트리 — 내장 텍스트 + 사용자 업로드 텍스트
+- 중앙 (1fr): 텍스트 표시 — 행 번호 + 토큰화된 단어 (클릭 가능)
+- 우측 (380px): 사전 조회 — 토큰 클릭 시 Zone A/B/C 결과 표시
+
+**토큰화:**
+- 공백 기준 분리, 각 토큰 클릭 → `readerSearch()` 호출
+- 산스크리트 (serif 폰트) / 티벳어 (Noto Sans Tibetan) 자동 감지
+
+**텍스트 업로드 기능:**
+- localStorage 기반 저장 (키: `skt_tib_uploads`)
+- 파일 선택 또는 텍스트 붙여넣기
+- 산스크리트(IAST) / 티벳어(Wylie) 언어 선택
+- 파일 트리 "내 텍스트" 섹션에 표시 + 삭제 버튼
+- 업로드 경로: `upload/{sa|bo}/{filename}`
+
+**관련 파일:**
+- `web/reader.js` — 파일 트리, 텍스트 렌더링, 업로드 다이얼로그
+- `web/app.js` — 모드 전환, `readerSearch()`, `openTextFile()`, `renderFileTree()`
+- `web/index.html` — 듀얼 main 요소, 3-패널 그리드
+- `web/style.css` — 리더 레이아웃, 토큰 스타일, 업로드 다이얼로그
+- `texts/` — 내장 텍스트 (symlink: `web/texts → ../texts`)
+  - `texts/sanskrit/vajracchedika/ch1.txt`
+  - `texts/sanskrit/hrdaya/hrdaya.txt`
+  - `texts/tibetan/hrdaya/hrdaya.txt`
+
+### Phase 4a 어휘 카드
+
+**저장소:**
+- IndexedDB (`skt_vocab_cards` DB, `cards` object store)
+- 자동 증가 `id` 키, `headword` / `lang` / `ts` / `status` 인덱스
+
+**카드 데이터 구조:**
+- `headword`: 단어 원형
+- `meaning`: 뜻 자동 요약 (상위 사전 3개에서 80자씩 추출)
+- `lang`: `"sa"` | `"bo"`
+- `source`: 출처 파일 경로
+- `lineNum`: 행 번호
+- `context`: 해당 행 전체 텍스트 (문맥)
+- `note`: 사용자 메모
+- `status`: `"new"` | `"learning"` | `"known"`
+- `ts`: 생성 타임스탬프
+
+**독해 모드 연동:**
+- 토큰 클릭 → 사전 조회 결과 상단에 "**+ 어휘 카드 저장**" 버튼 표시
+- 클릭 시 현재 단어 + 뜻 요약 + 문맥 + 출처를 자동 수집하여 IndexedDB에 저장
+- 저장 후 버튼이 "✓ 저장됨"으로 변경 (비활성화)
+
+**어휘 모드 (세 번째 탭):**
+- 검색/독해/어휘 3-탭 UI
+- 카드 검색: headword, meaning, note 대상 실시간 검색 (디바운스 200ms)
+- 상태 필터: 전체 / 새 단어 / 학습 중 / 완료
+- 카드 표시: headword, 언어 태그, 상태 배지, 날짜, 뜻, 문맥(인용), 출처, 메모
+- 카드 조작: 상태 변경 드롭다운, 메모 편집(✏️), 사전 검색(🔍), 삭제(🗑️)
+- 내보내기: JSON 파일 다운로드 (`vocab_cards_YYYY-MM-DD.json`)
+- 가져오기: JSON 파일 업로드 → 카드 일괄 추가
+
+**관련 파일:**
+- `web/vocab.js` — IndexedDB CRUD (init/add/remove/update/getAll/search/count/export/import)
+- `web/app.js` — 카드 저장 버튼 렌더링, 어휘 모드 리스트/필터/이벤트 처리
+- `web/index.html` — vocab-mode main 요소, 툴바, 필터 버튼, 내보내기/가져오기
+- `web/style.css` — vocab-save-bar, vocab-card, vocab-toolbar, 상태 배지 스타일
 
 ---
 
@@ -80,13 +149,21 @@ sanskrit_tibetan_reading_workspace/
 │   ├── style.css
 │   ├── dict.sqlite          ← ../build/dict.sqlite 심볼릭 링크
 │   ├── bilex.sqlite         ← ../build/bilex.sqlite 심볼릭 링크
+│   ├── reader.js            ← 독해 모드 (파일 트리, 토큰화, 업로드)
+│   ├── vocab.js             ← 어휘 카드 (IndexedDB CRUD)
 │   ├── bilex.js             ← 대역어 조회 (FTS + LIKE prefix fallback)
+│   ├── texts/               ← ../texts 심볼릭 링크
 │   ├── sql-wasm.wasm        ← vendor 복사본 (worker fallback)
 │   └── vendor/
 │       ├── index.js         ← sql.js-httpvfs v0.8.12
 │       ├── sqlite.worker.js
 │       └── sql-wasm.wasm
-├── texts/                   ← (향후 원문 저장소)
+├── texts/                   ← 내장 원문 저장소
+│   ├── sanskrit/
+│   │   ├── vajracchedika/ch1.txt
+│   │   └── hrdaya/hrdaya.txt
+│   └── tibetan/
+│       └── hrdaya/hrdaya.txt
 └── notes/                   ← (향후 노트 저장소)
 ```
 
@@ -298,6 +375,7 @@ CREATE VIRTUAL TABLE entries_fts USING fts5(
 | Mahāvyutpatti 임포트 시 DB 손상 | `DELETE FROM entries_fts` (content-sync FTS5) | `DROP TABLE` + 재생성 방식으로 변경 |
 | "disk I/O error" | `maxBytesToRead` 80MB < DB 638MB | 4번째 인자 제거 (Infinity) — **2026-04-10 검증 완료** |
 | 정보 과부하 (`chos` 800건 전문) | 85개 사전 결과를 동등 비중으로 표시 | Phase 2.5: 4존 구조 + tier 분류 + 비정확 매치 headword 리스트화 |
+| 텍스트 없음 표시 | `texts/`가 웹 루트 외부 | symlink `web/texts → ../texts` 생성 |
 
 ---
 
@@ -305,8 +383,9 @@ CREATE VIRTUAL TABLE entries_fts USING fts5(
 
 - **Phase 2 (완료)**: bilex.sqlite ✓ / Apple Tibetan Great Dictionary 변환 ✓
 - **Phase 2.5 (완료)**: 검색 UI 개편 — 4존 구조, tier 분류, 6그룹, 즐겨찾기, 필터 pill ✓
-- **Phase 3**: 원문 리더 (texts/ 트리 + 토큰 클릭 → 사전 연동)
-- **Phase 4**: 노트/어휘카드 (IndexedDB + Gist 동기화), 외부 사이트 URL 빌더
+- **Phase 3 (완료)**: 독해 모드 — 3-패널 레이아웃, 토큰 클릭 → 사전 조회, 텍스트 업로드 ✓
+- **Phase 4a (완료)**: 어휘 카드 — IndexedDB 저장, 독해→카드 저장, 검색/필터/내보내기/가져오기 ✓
+- **Phase 4b**: 외부 사이트 URL 빌더, Gist 동기화
 - **GitHub 저장소**: UI 안정화 후 생성 예정 (dict.sqlite는 Release 첨부)
 
 ---

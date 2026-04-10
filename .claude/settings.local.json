@@ -50,7 +50,8 @@
       "Bash(sqlite3 \"/Users/jibak/Library/CloudStorage/GoogleDrive-naspatterns@gmail.com/내 드라이브/haMsa CODE/sanskrit_tibetan_reading_workspace/build/dict.sqlite\" \"SELECT headword, headword_norm FROM entries WHERE dict_id = \\(SELECT id FROM dictionaries WHERE name='apple_bod_rgya_tshig_mdzod'\\) AND headword_norm LIKE '%chos%' LIMIT 5\")",
       "Bash(sqlite3 \"/Users/jibak/Library/CloudStorage/GoogleDrive-naspatterns@gmail.com/내 드라이브/haMsa CODE/sanskrit_tibetan_reading_workspace/build/dict.sqlite\" \"SELECT headword, headword_norm FROM entries WHERE dict_id = \\(SELECT id FROM dictionaries WHERE name='apple_bod_rgya_tshig_mdzod'\\) LIMIT 10\")",
       "Bash(gh auth:*)",
-      "Bash(brew list:*)"
+      "Bash(brew list:*)",
+      "Bash(ln -sf ../texts texts)"
     ]
   }
 }

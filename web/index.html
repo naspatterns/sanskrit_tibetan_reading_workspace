@@ -4,12 +4,17 @@
 <meta charset="utf-8">
 <title>Sanskrit–Tibetan Reading Workspace</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <header>
   <div class="title">
     <h1>Sanskrit–Tibetan Reading Workspace</h1>
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="search">검색</button>
+      <button class="mode-tab" data-mode="reader">독해</button>
+      <button class="mode-tab" data-mode="vocab">어휘</button>
+    </div>
     <span id="status" class="status"></span>
   </div>
   <div id="search-section">
@@ -18,17 +23,66 @@
   </div>
 </header>
 
-<main>
+<!-- Search mode -->
+<main id="search-mode">
   <aside id="sidebar"></aside>
   <section id="results">
     <p class="hint">단어를 입력해 검색해 보세요.</p>
   </section>
 </main>
 
+<!-- Reader mode -->
+<main id="reader-mode" style="display:none">
+  <aside id="file-tree">
+    <div class="tree-header">원문 목록</div>
+    <div id="tree-content"></div>
+  </aside>
+  <section id="text-panel">
+    <div id="text-header">
+      <span id="text-title">파일을 선택하세요</span>
+    </div>
+    <div id="text-body">
+      <p class="hint">좌측 목록에서 텍스트를 선택하면 여기에 표시됩니다.</p>
+    </div>
+  </section>
+  <section id="lookup-panel">
+    <div id="lookup-header">사전 조회</div>
+    <div id="lookup-results">
+      <p class="hint">텍스트에서 단어를 클릭하면 사전 결과가 표시됩니다.</p>
+    </div>
+  </section>
+</main>
+
+<!-- Vocab mode -->
+<main id="vocab-mode" style="display:none">
+  <div id="vocab-container">
+    <div class="vocab-toolbar">
+      <input id="vocab-search" type="text" placeholder="카드 검색...">
+      <div class="vocab-filters">
+        <button class="vocab-filter-btn active" data-status="all">전체</button>
+        <button class="vocab-filter-btn" data-status="new">새 단어</button>
+        <button class="vocab-filter-btn" data-status="learning">학습 중</button>
+        <button class="vocab-filter-btn" data-status="known">완료</button>
+      </div>
+      <div class="vocab-actions">
+        <button id="vocab-export" class="vocab-action-btn" title="내보내기">📤 내보내기</button>
+        <button id="vocab-import" class="vocab-action-btn" title="가져오기">📥 가져오기</button>
+        <input type="file" id="vocab-import-file" accept=".json" style="display:none">
+      </div>
+    </div>
+    <div id="vocab-stats" class="vocab-stats"></div>
+    <div id="vocab-list" class="vocab-list">
+      <p class="hint">어휘 카드가 없습니다. 독해 모드에서 단어를 검색한 후 저장하세요.</p>
+    </div>
+  </div>
+</main>
+
 <script src="vendor/index.js"></script>
-<script src="dictnames.js?v=4"></script>
-<script src="lookup.js?v=4"></script>
-<script src="bilex.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="dictnames.js?v=7"></script>
+<script src="lookup.js?v=7"></script>
+<script src="bilex.js?v=7"></script>
+<script src="reader.js?v=7"></script>
+<script src="vocab.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
