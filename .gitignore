@@ -4,8 +4,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .venv/
-web/dict.sqlite
-web/bilex.sqlite
+docs/dict.sqlite
+docs/bilex.sqlite
 
 # 내부 문서
 CLAUDE.md

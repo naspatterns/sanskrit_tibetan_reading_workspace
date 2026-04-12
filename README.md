@@ -57,7 +57,7 @@ pip install lxml pandas xlrd
 
 # Dev server (must support HTTP Range requests)
 python3 scripts/serve.py 8000
-# → http://localhost:8000/web/
+# → http://localhost:8000/docs/
 ```
 
 > **Note**: `python3 -m http.server` does not support Range requests and will not work with sql.js-httpvfs. Always use `serve.py`.
@@ -67,7 +67,7 @@ python3 scripts/serve.py 8000
 ## Directory Structure
 
 ```
-├── web/                     ← GitHub Pages root
+├── docs/                    ← GitHub Pages root
 │   ├── index.html           ← Search UI (reader/vocab tabs disabled)
 │   ├── app.js               ← UI orchestrator
 │   ├── lookup.js            ← dict.sqlite FTS5 query wrapper
