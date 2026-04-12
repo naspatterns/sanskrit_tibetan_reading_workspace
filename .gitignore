@@ -6,6 +6,8 @@ __pycache__/
 .venv/
 docs/dict.sqlite
 docs/bilex.sqlite
+docs/search.sqlite
+docs/headwords.json.gz
 
 # 내부 문서
 CLAUDE.md

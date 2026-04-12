@@ -792,18 +792,19 @@ function mergeBilexResults(...arrays) {
 async function search() {
   const term = q.value.trim();
   if (!term) return;
+  closeAutocomplete();
   setStatus("\uac80\uc0c9 \uc911...");
   const t0 = performance.now();
   try {
     const isCJK = /[\u4e00-\u9fff]/.test(term);
+
+    // ── Phase 1: Fast headword search (search.sqlite) + bilex ──
     const [rows, bilexTib, bilexSkt, bilexZh] = await Promise.all([
       window.Lookup.search(term, { limit: 500 }),
       window.Bilex ? window.Bilex.lookupTib(term) : [],
       window.Bilex ? window.Bilex.lookupSkt(term) : [],
       (window.Bilex && isCJK) ? window.Bilex.lookupZh(term) : [],
     ]);
-
-    // Merge bilex results (deduplicate by skt+tib key)
     const bilexRows = mergeBilexResults(bilexTib, bilexSkt, bilexZh);
 
     const ms = Math.round(performance.now() - t0);
@@ -818,8 +819,36 @@ async function search() {
     }
 
     collapseOverride.clear();
+    const partialHeadwords = deduplicatePartial(partial);
+    const displayGroups = groupExactByDisplayGroup(exact);
+
+    // Render Zone B + Zone D immediately (no body needed)
+    results.innerHTML = [
+      `<div id="zone-a-container"></div>`,
+      renderZoneB(bilexRows),
+      `<div id="zone-d-anchor"></div>`,
+      renderZoneD(partialHeadwords),
+      `<div id="zone-c-container">${exact.length ? '<p class="hint">\uc0ac\uc804 \ubcf8\ubb38 \ub85c\ub529 \uc911...</p>' : ''}</div>`,
+    ].join("");
+    renderSidebar(displayGroups, rows.length, bilexRows, partialHeadwords.length);
+
+    // ── Phase 2: Lazy body loading (dict.sqlite) for exact matches ──
+    if (exact.length) {
+      const exactIds = exact.map((r) => r.id);
+      const bodies = await window.Lookup.fetchBodies(exactIds);
+      const bodyMap = new Map(bodies.map((b) => [b.id, b]));
+      for (const r of exact) {
+        const b = bodyMap.get(r.id);
+        if (b) { r.body = b.body; r.body_ko = b.body_ko; }
+      }
+      // Fill Zone A + Zone C with body data
+      const zaEl = document.getElementById("zone-a-container");
+      const zcEl = document.getElementById("zone-c-container");
+      if (zaEl) zaEl.innerHTML = renderZoneA(exact, bilexRows, term);
+      if (zcEl) zcEl.innerHTML = renderZoneC(displayGroups);
+    }
+
     lastRenderFn = () => renderAll(rows, bilexRows, term);
-    lastRenderFn();
   } catch (e) {
     console.error(e);
     setStatus("\uc624\ub958");
@@ -973,8 +1002,8 @@ lookupResults.addEventListener("click", (e) => {
 async function readerSearch(term) {
   if (!term) return;
   lastReaderTerm = term;
-  q.value = term; // sync search box
-  lookupResults.innerHTML = `<p class="hint">검색 중...</p>`;
+  q.value = term;
+  lookupResults.innerHTML = `<p class="hint">\uac80\uc0c9 \uc911...</p>`;
 
   try {
     const isCJK2 = /[\u4e00-\u9fff]/.test(term);
@@ -984,38 +1013,51 @@ async function readerSearch(term) {
       window.Bilex ? window.Bilex.lookupSkt(term) : [],
       (window.Bilex && isCJK2) ? window.Bilex.lookupZh(term) : [],
     ]);
-
-    // Merge bilex
     const bilexRows = mergeBilexResults(bilexTib, bilexSkt, bilexZh2);
 
     if (!rows.length && !bilexRows.length) {
-      lookupResults.innerHTML = `<p class="hint"><b>${escapeHtml(term)}</b> — 결과 없음.</p>`;
+      lookupResults.innerHTML = `<p class="hint"><b>${escapeHtml(term)}</b> \u2014 \uacb0\uacfc \uc5c6\uc74c.</p>`;
       return;
     }
 
     const { exact, partial } = classifyRows(rows);
     const displayGroups = groupExactByDisplayGroup(exact);
 
-    // Build meaning summary for vocab card
-    const meaningSnippets = [];
-    for (const r of exact.slice(0, 3)) {
-      const body = (r.body_ko || r.body || "").replace(/\n/g, " ").trim();
-      if (body) meaningSnippets.push(body.length > 80 ? body.slice(0, 80) + "…" : body);
-    }
-    const autoMeaning = meaningSnippets.join(" / ");
-
-    // Render compact results for side panel
-    const html = [
-      renderVocabSaveBtn(term, autoMeaning),
-      renderZoneA(exact, bilexRows, term),
+    // Phase 1: render with placeholder for body-dependent zones
+    lookupResults.innerHTML = [
+      renderVocabSaveBtn(term, ""),
+      `<div id="reader-za-container"></div>`,
       renderZoneB(bilexRows),
-      renderZoneC(displayGroups),
+      `<div id="reader-zc-container">${exact.length ? '<p class="hint">\ubcf8\ubb38 \ub85c\ub529 \uc911...</p>' : ''}</div>`,
     ].join("");
 
-    lookupResults.innerHTML = html;
+    // Phase 2: fetch bodies for exact matches
+    if (exact.length) {
+      const exactIds = exact.map((r) => r.id);
+      const bodies = await window.Lookup.fetchBodies(exactIds);
+      const bodyMap = new Map(bodies.map((b) => [b.id, b]));
+      for (const r of exact) {
+        const b = bodyMap.get(r.id);
+        if (b) { r.body = b.body; r.body_ko = b.body_ko; }
+      }
+
+      // Update vocab save button with meaning from body
+      const meaningSnippets = [];
+      for (const r of exact.slice(0, 3)) {
+        const body = (r.body_ko || r.body || "").replace(/\n/g, " ").trim();
+        if (body) meaningSnippets.push(body.length > 80 ? body.slice(0, 80) + "\u2026" : body);
+      }
+      const vocabBtn = lookupResults.querySelector(".vocab-save-btn");
+      if (vocabBtn) vocabBtn.dataset.meaning = meaningSnippets.join(" / ");
+
+      const zaEl = lookupResults.querySelector("#reader-za-container");
+      const zcEl = lookupResults.querySelector("#reader-zc-container");
+      if (zaEl) zaEl.innerHTML = renderZoneA(exact, bilexRows, term);
+      if (zcEl) zcEl.innerHTML = renderZoneC(displayGroups);
+    }
   } catch (e) {
     console.error(e);
-    lookupResults.innerHTML = `<p class="hint error">오류: ${escapeHtml(String(e))}</p>`;
+    lookupResults.innerHTML = `<p class="hint error">\uc624\ub958: ${escapeHtml(String(e))}</p>`;
   }
 }
 
@@ -1341,16 +1383,16 @@ function withTimeout(promise, ms, label) {
   ]);
 }
 
-const DB_TIMEOUT = 30000;
+const DB_TIMEOUT = 60000;
 
 Promise.all([
-  withTimeout(window.Lookup.init(), DB_TIMEOUT, "사전 DB"),
-  window.Bilex ? withTimeout(window.Bilex.init(), DB_TIMEOUT, "대역어 DB") : Promise.resolve(),
+  withTimeout(window.Lookup.init(), DB_TIMEOUT, "\uac80\uc0c9 \uc778\ub371\uc2a4 DB"),
+  window.Bilex ? withTimeout(window.Bilex.init(), DB_TIMEOUT, "\ub300\uc5ed\uc5b4 DB") : Promise.resolve(),
   window.Reader ? window.Reader.init() : Promise.resolve(),
   window.Vocab ? window.Vocab.init() : Promise.resolve(),
 ]).then(() => {
   const n = Object.keys(window.Lookup.dicts()).length;
-  setStatus(`${n}개 사전 + 대역어 DB 준비 완료`);
+  setStatus(`${n}\uac1c \uc0ac\uc804 + \ub300\uc5ed\uc5b4 DB \uc900\ube44 \uc644\ub8cc`);
 
   // Render file tree
   if (window.Reader) {
@@ -1381,6 +1423,121 @@ Promise.all([
         <p><strong>온라인 배포 시:</strong> DB 파일이 올바른 경로에 호스팅되어 있는지 확인하세요.</p>
       </div>`;
   } else {
-    setStatus("초기화 실패: " + msg);
+    setStatus("\ucd08\uae30\ud654 \uc2e4\ud328: " + msg);
   }
+});
+
+// ── Autocomplete ────────────────────────────────────────────────────
+
+let acIndex = null; // sorted array of unique headword_norm strings
+let acHighlight = -1;
+
+// Load autocomplete index (runs in parallel with DB init)
+fetch("headwords.json")
+  .then((r) => { if (r.ok) return r.json(); throw new Error(r.status); })
+  .then((arr) => { acIndex = arr; })
+  .catch((e) => console.warn("Autocomplete index not loaded:", e));
+
+function acNormalize(s) {
+  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+}
+
+// Binary search: find first index where acIndex[i] >= prefix
+function acLowerBound(prefix) {
+  let lo = 0, hi = acIndex.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (acIndex[mid] < prefix) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+function acSearch(prefix, limit) {
+  if (!acIndex || !prefix) return [];
+  limit = limit || 10;
+  const norm = acNormalize(prefix);
+  if (!norm) return [];
+  const start = acLowerBound(norm);
+  const results = [];
+  for (let i = start; i < acIndex.length && results.length < limit; i++) {
+    if (acIndex[i].startsWith(norm)) results.push(acIndex[i]);
+    else break;
+  }
+  return results;
+}
+
+function getAcList() {
+  return document.getElementById("autocomplete-list");
+}
+
+function closeAutocomplete() {
+  const list = getAcList();
+  if (list) list.style.display = "none";
+  acHighlight = -1;
+}
+
+function renderAutocomplete(matches) {
+  const list = getAcList();
+  if (!list || !matches.length) { closeAutocomplete(); return; }
+  const input = acNormalize(q.value);
+  list.innerHTML = matches.map((m, i) => {
+    // Highlight the matching prefix portion
+    const matchLen = input.length;
+    const bold = escapeHtml(m.slice(0, matchLen));
+    const rest = escapeHtml(m.slice(matchLen));
+    return `<li class="ac-item${i === acHighlight ? " ac-active" : ""}" data-term="${escapeHtml(m)}"><b>${bold}</b>${rest}</li>`;
+  }).join("");
+  list.style.display = "block";
+}
+
+// Autocomplete on input
+let acTimer = null;
+q.addEventListener("input", () => {
+  clearTimeout(acTimer);
+  acTimer = setTimeout(() => {
+    const val = q.value.trim();
+    if (val.length < 2) { closeAutocomplete(); return; }
+    const matches = acSearch(val, 10);
+    acHighlight = -1;
+    renderAutocomplete(matches);
+  }, 150);
+});
+
+// Keyboard navigation
+q.addEventListener("keydown", (e) => {
+  const list = getAcList();
+  if (!list || list.style.display === "none") return;
+  const items = list.querySelectorAll(".ac-item");
+  if (!items.length) return;
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    acHighlight = Math.min(acHighlight + 1, items.length - 1);
+    items.forEach((li, i) => li.classList.toggle("ac-active", i === acHighlight));
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    acHighlight = Math.max(acHighlight - 1, 0);
+    items.forEach((li, i) => li.classList.toggle("ac-active", i === acHighlight));
+  } else if (e.key === "Enter" && acHighlight >= 0) {
+    e.preventDefault();
+    q.value = items[acHighlight].dataset.term;
+    closeAutocomplete();
+    search();
+  } else if (e.key === "Escape") {
+    closeAutocomplete();
+  }
+});
+
+// Click on autocomplete item
+document.addEventListener("click", (e) => {
+  const item = e.target.closest(".ac-item");
+  if (item) {
+    q.value = item.dataset.term;
+    closeAutocomplete();
+    search();
+    return;
+  }
+  // Close on outside click
+  if (!e.target.closest("#search-section")) closeAutocomplete();
 });

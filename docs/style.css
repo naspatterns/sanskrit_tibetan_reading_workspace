@@ -33,8 +33,9 @@ header h1 { margin: 0; font-size: 1.05rem; font-weight: 600; }
 .mode-tab:hover:not(.active) { background: #e8e8e0; }
 
 #search-section { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.search-input-wrap { position: relative; flex: 1; }
 #q {
-  flex: 1; padding: 0.5rem 0.7rem; font-size: 0.95rem;
+  width: 100%; padding: 0.5rem 0.7rem; font-size: 0.95rem;
   border: 1px solid #ccc; border-radius: 4px;
   font-family: inherit;
 }
@@ -44,6 +45,25 @@ header h1 { margin: 0; font-size: 1.05rem; font-weight: 600; }
   border: 1px solid #888; background: #fff; border-radius: 4px;
 }
 #go:hover { background: #f0f0ec; }
+
+/* ── Autocomplete dropdown ─────────────────────────────────────── */
+#autocomplete-list {
+  position: absolute; top: 100%; left: 0; right: 0;
+  margin: 2px 0 0; padding: 0;
+  list-style: none;
+  background: #fff; border: 1px solid #ccc; border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  max-height: 280px; overflow-y: auto;
+  z-index: 100;
+}
+.ac-item {
+  padding: 0.45rem 0.7rem; cursor: pointer;
+  font-size: 0.9rem; color: #333;
+}
+.ac-item b { color: #1a3a5a; }
+.ac-item:hover, .ac-item.ac-active {
+  background: #eef2f7; color: #111;
+}
 
 /* ── Layout ─────────────────────────────────────────────────────── */
 main {
