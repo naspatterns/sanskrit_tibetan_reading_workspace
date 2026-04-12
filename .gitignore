@@ -8,6 +8,7 @@ docs/dict.sqlite
 docs/bilex.sqlite
 docs/search.sqlite
 docs/headwords.json.gz
+docs/bilex_index.json.gz
 
 # 내부 문서
 CLAUDE.md
@@ -16,6 +17,9 @@ BUILD_STATUS.md
 # 빌드 스크립트 (로컬 경로 포함)
 scripts/
 !scripts/serve.py
+!scripts/build_bilex_index.py
+!scripts/build_autocomplete.py
+!scripts/build_search_index.py
 
 # Claude Code 설정
 .claude/

@@ -1,227 +1,122 @@
-// bilex.js — Trilingual lexicon lookup (Skt↔Tib↔Zh) via sql.js-httpvfs.
+// bilex.js — Trilingual lexicon lookup (Skt↔Tib↔Zh) via in-memory JSON index.
 // Exposes window.Bilex = { init(), lookupTib(wylie), lookupSkt(iast), lookupZh(zh) }.
 //
-// Queries TWO tables:
-//   1. bilex  — Mahāvyutpatti only (9,500 pairs, with entry_num & category)
-//   2. equiv  — Multi-source (112K+ pairs: Mahāvyutpatti + Negi + LCh + 84000 + Hopkins)
-//              Now includes zh/zh_norm columns for Chinese equivalents.
+// Loads bilex_index.json at startup (~19MB raw, ~6MB gzipped).
+// All lookups are instant O(1) hash-map reads — no HTTP Range requests.
 //
-// Zone A/B uses combined results; equiv provides broader coverage.
+// Index format:
+//   s: source names array
+//   e: entries array — each [skt_iast, tib_wylie, src_idx, category?, zh?, entry_num?]
+//   k: skt_norm → [entry_indices]
+//   t: tib_norm → [entry_indices]
+//   z: zh_norm → [entry_indices]
 
 (function () {
-  const VALID_FIELDS = { tib_norm: true, skt_norm: true, zh_norm: true };
-  function assertField(f) { if (!VALID_FIELDS[f]) throw new Error("invalid field: " + f); }
-
-  let workerPromise = null;
-
-  // DB URL: use local path for localhost, HuggingFace CDN for production
-  function getBilexUrl() {
-    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-      return "../bilex.sqlite?v=" + Date.now();
-    }
-    return "https://huggingface.co/datasets/naspatterns/sanskrit-tibetan-dict/resolve/main/bilex.sqlite";
-  }
-
-  async function init() {
-    if (workerPromise) return workerPromise;
-    workerPromise = window.createDbWorker(
-      [
-        {
-          from: "inline",
-          config: {
-            serverMode: "full",
-            url: getBilexUrl(),
-            requestChunkSize: 65536,
-          },
-        },
-      ],
-      "vendor/sqlite.worker.js",
-      "sql-wasm.wasm"
-    );
-    return workerPromise;
-  }
+  let indexData = null; // loaded JSON index
+  let initPromise = null;
 
   function normalize(s) {
     return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
   }
 
-  function ftsQuote(s) {
-    return '"' + s.replace(/"/g, '""') + '"';
+  async function init() {
+    if (initPromise) return initPromise;
+    initPromise = fetch("bilex_index.json")
+      .then((r) => {
+        if (!r.ok) throw new Error("bilex_index.json: " + r.status);
+        return r.json();
+      })
+      .then((data) => {
+        indexData = data;
+      });
+    return initPromise;
   }
 
-  // ── Legacy bilex queries (Mahāvyutpatti with entry_num) ────────────
-
-  async function queryBilex(worker, field, norm, limit) {
-    assertField(field);
-    const otherField = field === "tib_norm" ? "skt_norm" : "tib_norm";
-    const ftsSql = `
-      SELECT b.entry_num, b.skt_iast, b.skt_slp1, b.tib_wylie,
-             b.category_zh, s.name AS source,
-             (b.${field} = ?) AS exact
-        FROM bilex_fts f
-        JOIN bilex b ON b.id = f.rowid
-        JOIN sources s ON s.id = b.source_id
-       WHERE bilex_fts MATCH '${field}:' || ?
-       ORDER BY exact DESC, length(b.${field}) ASC
-       LIMIT ?
-    `;
-    let rows = await worker.db.query(ftsSql, [norm, ftsQuote(norm), limit]);
-    if (!rows.length) {
-      const likeSql = `
-        SELECT b.entry_num, b.skt_iast, b.skt_slp1, b.tib_wylie,
-               b.category_zh, s.name AS source,
-               (b.${field} = ?) AS exact
-          FROM bilex b
-          JOIN sources s ON s.id = b.source_id
-         WHERE b.${field} LIKE ? || '%'
-         ORDER BY exact DESC, length(b.${field}) ASC
-         LIMIT ?
-      `;
-      rows = await worker.db.query(likeSql, [norm, norm, limit]);
-    }
-    return rows;
+  // Convert raw entry array to display object
+  function toEntry(e, source, exact) {
+    return {
+      skt_iast: e[0] || "",
+      tib_wylie: e[1] || "",
+      source: source,
+      category: e[3] || "",
+      zh: e[4] || "",
+      entry_num: e.length > 5 ? e[5] : null,
+      exact: exact ? 1 : 0,
+    };
   }
 
-  // ── New equiv queries (multi-source) ───────────────────────────────
-
-  async function queryEquiv(worker, field, norm, limit) {
-    assertField(field);
-    try {
-      const ftsSql = `
-        SELECT e.skt_iast, e.tib_wylie, e.zh, e.category, e.note,
-               s.name AS source,
-               (e.${field} = ?) AS exact
-          FROM equiv_fts f
-          JOIN equiv e ON e.id = f.rowid
-          JOIN equiv_sources s ON s.id = e.source_id
-         WHERE equiv_fts MATCH '${field}:' || ?
-         ORDER BY exact DESC, length(e.${field}) ASC
-         LIMIT ?
-      `;
-      let rows = await worker.db.query(ftsSql, [norm, ftsQuote(norm), limit]);
-      if (!rows.length) {
-        const likeSql = `
-          SELECT e.skt_iast, e.tib_wylie, e.zh, e.category, e.note,
-                 s.name AS source,
-                 (e.${field} = ?) AS exact
-            FROM equiv e
-            JOIN equiv_sources s ON s.id = e.source_id
-           WHERE e.${field} LIKE ? || '%'
-           ORDER BY exact DESC, length(e.${field}) ASC
-           LIMIT ?
-        `;
-        rows = await worker.db.query(likeSql, [norm, norm, limit]);
-      }
-      return rows;
-    } catch (_) {
-      // equiv table may not exist in older builds
-      return [];
-    }
-  }
-
-  // ── Public API ─────────────────────────────────────────────────────
-
-  // Tibetan → find Sanskrit equivalents
-  async function lookupTib(wylie, opts = {}) {
-    const limit = opts.limit || 100;
-    const worker = await init();
-    const norm = normalize(wylie);
+  // Lookup by index key (skt_norm, tib_norm, or zh_norm)
+  function lookup(indexMap, term, limit) {
+    if (!indexData || !term) return [];
+    const norm = normalize(term);
     if (!norm) return [];
 
-    const [bilexRows, equivRows] = await Promise.all([
-      queryBilex(worker, "tib_norm", norm, limit),
-      queryEquiv(worker, "tib_norm", norm, limit),
-    ]);
+    const sources = indexData.s;
+    const entries = indexData.e;
+    const results = [];
+    const seen = new Set();
 
-    return mergeResults(bilexRows, equivRows);
-  }
-
-  // Sanskrit → find Tibetan equivalents
-  async function lookupSkt(iast, opts = {}) {
-    const limit = opts.limit || 100;
-    const worker = await init();
-    const norm = normalize(iast);
-    if (!norm) return [];
-
-    const [bilexRows, equivRows] = await Promise.all([
-      queryBilex(worker, "skt_norm", norm, limit),
-      queryEquiv(worker, "skt_norm", norm, limit),
-    ]);
-
-    return mergeResults(bilexRows, equivRows);
-  }
-
-  // Chinese → find Sanskrit/Tibetan equivalents
-  async function lookupZh(zh, opts = {}) {
-    const limit = opts.limit || 100;
-    const worker = await init();
-    const norm = zh.trim();
-    if (!norm) return [];
-
-    const equivRows = await queryEquiv(worker, "zh_norm", norm, limit);
-    return mergeResults([], equivRows);
-  }
-
-  // Merge bilex + equiv results, deduplicating
-  function mergeResults(bilexRows, equivRows) {
-    const seen = new Map(); // key → merged item
-    const merged = [];
-
-    function makeKey(skt, tib) {
-      return `${normalize(skt || "")}|${normalize(tib || "")}`;
-    }
-
-    // Bilex (Mahāvyutpatti) rows first — they have entry_num
-    for (const r of bilexRows) {
-      const key = makeKey(r.skt_iast, r.tib_wylie);
-      if (!seen.has(key)) {
-        const item = {
-          entry_num: r.entry_num,
-          skt_iast: r.skt_iast || "",
-          tib_wylie: r.tib_wylie || "",
-          zh: "",
-          category: r.category_zh || "",
-          source: r.source || "mahavyutpatti",
-          exact: r.exact,
-        };
-        seen.set(key, item);
-        merged.push(item);
-      }
-    }
-
-    // Equiv rows — broader coverage, includes zh
-    for (const r of equivRows) {
-      const key = makeKey(r.skt_iast, r.tib_wylie);
-      if (seen.has(key)) {
-        if (r.zh) {
-          const existing = seen.get(key);
-          if (!existing.zh) existing.zh = r.zh;
+    // Exact match
+    const exactIndices = indexMap[norm];
+    if (exactIndices) {
+      for (const i of exactIndices) {
+        if (results.length >= limit) break;
+        const e = entries[i];
+        const key = `${(e[0] || "").toLowerCase()}|${(e[1] || "").toLowerCase()}|${e[2]}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push(toEntry(e, sources[e[2]], true));
         }
-        continue;
       }
-      const item = {
-        entry_num: null,
-        skt_iast: r.skt_iast || "",
-        tib_wylie: r.tib_wylie || "",
-        zh: r.zh || "",
-        category: r.category || "",
-        source: r.source || "",
-        exact: r.exact,
-      };
-      seen.set(key, item);
-      merged.push(item);
+    }
+
+    // Prefix matches (scan nearby keys)
+    if (results.length < limit) {
+      const keys = Object.keys(indexMap);
+      for (const k of keys) {
+        if (k === norm) continue; // skip exact (already added)
+        if (k.startsWith(norm) && results.length < limit) {
+          for (const i of indexMap[k]) {
+            if (results.length >= limit) break;
+            const e = entries[i];
+            const key = `${(e[0] || "").toLowerCase()}|${(e[1] || "").toLowerCase()}|${e[2]}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              results.push(toEntry(e, sources[e[2]], false));
+            }
+          }
+        }
+      }
     }
 
     // Sort: exact first, then by source priority
-    const SOURCE_ORDER = { mahavyutpatti: 0, "84000": 1, negi: 2, hopkins: 3, "lokesh-chandra": 4, "yogacarabhumi-idx": 5, "nti-reader": 6 };
-    merged.sort((a, b) => {
-      if ((b.exact || 0) !== (a.exact || 0)) return (b.exact || 0) - (a.exact || 0);
+    const SOURCE_ORDER = {
+      mahavyutpatti: 0, "84000": 1, negi: 2, hopkins: 3,
+      "lokesh-chandra": 4, "yogacarabhumi-idx": 5, "nti-reader": 6,
+    };
+    results.sort((a, b) => {
+      if (b.exact !== a.exact) return b.exact - a.exact;
       const sa = SOURCE_ORDER[a.source] ?? 9;
       const sb = SOURCE_ORDER[b.source] ?? 9;
       return sa - sb;
     });
 
-    return merged;
+    return results;
+  }
+
+  async function lookupSkt(iast, opts = {}) {
+    await init();
+    return lookup(indexData.k, iast, opts.limit || 100);
+  }
+
+  async function lookupTib(wylie, opts = {}) {
+    await init();
+    return lookup(indexData.t, wylie, opts.limit || 100);
+  }
+
+  async function lookupZh(zh, opts = {}) {
+    await init();
+    return lookup(indexData.z, zh, opts.limit || 100);
   }
 
   window.Bilex = { init, lookupTib, lookupSkt, lookupZh, normalize };

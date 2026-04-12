@@ -1399,12 +1399,12 @@ const DB_TIMEOUT = 60000;
 
 Promise.all([
   withTimeout(window.Lookup.init(), DB_TIMEOUT, "\uac80\uc0c9 \uc778\ub371\uc2a4 DB"),
-  window.Bilex ? withTimeout(window.Bilex.init(), DB_TIMEOUT, "\ub300\uc5ed\uc5b4 DB") : Promise.resolve(),
+  window.Bilex ? withTimeout(window.Bilex.init(), DB_TIMEOUT, "\ub300\uc5ed\uc5b4 \uc778\ub371\uc2a4") : Promise.resolve(),
   window.Reader ? window.Reader.init() : Promise.resolve(),
   window.Vocab ? window.Vocab.init() : Promise.resolve(),
 ]).then(() => {
   const n = Object.keys(window.Lookup.dicts()).length;
-  setStatus(`${n}\uac1c \uc0ac\uc804 + \ub300\uc5ed\uc5b4 DB \uc900\ube44 \uc644\ub8cc`);
+  setStatus(`${n}\uac1c \uc0ac\uc804 + \ub300\uc5ed\uc5b4 \uc900\ube44 \uc644\ub8cc`);
 
   // Render file tree
   if (window.Reader) {
