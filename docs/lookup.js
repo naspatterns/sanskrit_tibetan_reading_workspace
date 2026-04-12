@@ -40,7 +40,7 @@
           config: {
             serverMode: "full",
             url: getSearchUrl(),
-            requestChunkSize: 4096, // small DB → small chunks OK
+            requestChunkSize: 262144, // 256KB — prefetch nearby pages
           },
         },
       ],

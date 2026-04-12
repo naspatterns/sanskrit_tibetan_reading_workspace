@@ -856,16 +856,8 @@ async function search() {
   }
 }
 
-// Debounced search to prevent rapid-fire queries
-let searchTimer = null;
-function debouncedSearch() {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(search, 300);
-}
-
 go.addEventListener("click", search);
 q.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
-q.addEventListener("input", debouncedSearch);
 
 // ── Mode switching ──────────────────────────────────────────────────
 
