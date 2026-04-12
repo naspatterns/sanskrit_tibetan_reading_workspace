@@ -22,7 +22,7 @@
           config: {
             serverMode: "full",
             url: getDictUrl(),
-            requestChunkSize: 4096,
+            requestChunkSize: 1048576,
           },
         },
       ],

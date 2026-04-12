@@ -31,7 +31,7 @@
           config: {
             serverMode: "full",
             url: getBilexUrl(),
-            requestChunkSize: 4096,
+            requestChunkSize: 65536,
           },
         },
       ],
