@@ -798,9 +798,25 @@ async function search() {
   try {
     const isCJK = /[\u4e00-\u9fff]/.test(term);
 
-    // ── Phase 1: Fast headword search (search.sqlite) + bilex ──
-    const [rows, bilexTib, bilexSkt, bilexZh] = await Promise.all([
-      window.Lookup.search(term, { limit: 500 }),
+    // ── Phase 0: Instant partial matches from in-memory index ──
+    const memPartials = window.Lookup.searchPartial(term, 200);
+    const partialHeadwords = memPartials.map((hw) => ({
+      headword: hw, count: 0, dicts: new Set(),
+    }));
+
+    // Show Zone D immediately from memory (no DB needed)
+    collapseOverride.clear();
+    results.innerHTML = [
+      `<div id="zone-a-container"></div>`,
+      `<div id="zone-b-container"></div>`,
+      `<div id="zone-d-anchor"></div>`,
+      renderZoneD(partialHeadwords),
+      `<div id="zone-c-container"><p class="hint">\uc0ac\uc804 \uac80\uc0c9 \uc911...</p></div>`,
+    ].join("");
+
+    // ── Phase 1: DB exact matches + bilex (in parallel) ──
+    const [exactRows, bilexTib, bilexSkt, bilexZh] = await Promise.all([
+      window.Lookup.searchExact(term, { limit: 500 }),
       window.Bilex ? window.Bilex.lookupTib(term) : [],
       window.Bilex ? window.Bilex.lookupSkt(term) : [],
       (window.Bilex && isCJK) ? window.Bilex.lookupZh(term) : [],
@@ -808,47 +824,50 @@ async function search() {
     const bilexRows = mergeBilexResults(bilexTib, bilexSkt, bilexZh);
 
     const ms = Math.round(performance.now() - t0);
-    const { exact, partial } = classifyRows(rows);
-    setStatus(`${rows.length}\uac74 (\uc815\ud655 ${exact.length} + \uad00\ub828 ${partial.length}) \u00b7 ${ms}ms`);
+    setStatus(`\uc815\ud655 ${exactRows.length}\uac74 + \uad00\ub828 ${partialHeadwords.length}\uac74 \u00b7 ${ms}ms`);
 
-    if (!rows.length && !bilexRows.length) {
+    if (!exactRows.length && !bilexRows.length && !partialHeadwords.length) {
       results.innerHTML = `<p class="hint"><b>${escapeHtml(term)}</b> \u2014 \uacb0\uacfc \uc5c6\uc74c.</p>`;
       sidebar.innerHTML = "";
       lastRenderFn = () => {};
       return;
     }
 
-    collapseOverride.clear();
-    const partialHeadwords = deduplicatePartial(partial);
-    const displayGroups = groupExactByDisplayGroup(exact);
+    // Mark all DB rows as exact
+    for (const r of exactRows) r.exact = 1;
+    const displayGroups = groupExactByDisplayGroup(exactRows);
 
-    // Render Zone B + Zone D immediately (no body needed)
-    results.innerHTML = [
-      `<div id="zone-a-container"></div>`,
-      renderZoneB(bilexRows),
-      `<div id="zone-d-anchor"></div>`,
-      renderZoneD(partialHeadwords),
-      `<div id="zone-c-container">${exact.length ? '<p class="hint">\uc0ac\uc804 \ubcf8\ubb38 \ub85c\ub529 \uc911...</p>' : ''}</div>`,
-    ].join("");
-    renderSidebar(displayGroups, rows.length, bilexRows, partialHeadwords.length);
+    // Update Zone B with bilex results
+    const zbEl = document.getElementById("zone-b-container");
+    if (zbEl) zbEl.innerHTML = renderZoneB(bilexRows);
+
+    // Update Zone C placeholder
+    const zcEl = document.getElementById("zone-c-container");
+    if (zcEl) zcEl.innerHTML = exactRows.length
+      ? '<p class="hint">\uc0ac\uc804 \ubcf8\ubb38 \ub85c\ub529 \uc911...</p>' : '';
+
+    renderSidebar(displayGroups, exactRows.length + partialHeadwords.length, bilexRows, partialHeadwords.length);
 
     // ── Phase 2: Lazy body loading (dict.sqlite) for exact matches ──
-    if (exact.length) {
-      const exactIds = exact.map((r) => r.id);
+    if (exactRows.length) {
+      const exactIds = exactRows.map((r) => r.id);
       const bodies = await window.Lookup.fetchBodies(exactIds);
       const bodyMap = new Map(bodies.map((b) => [b.id, b]));
-      for (const r of exact) {
+      for (const r of exactRows) {
         const b = bodyMap.get(r.id);
         if (b) { r.body = b.body; r.body_ko = b.body_ko; }
       }
-      // Fill Zone A + Zone C with body data
       const zaEl = document.getElementById("zone-a-container");
-      const zcEl = document.getElementById("zone-c-container");
-      if (zaEl) zaEl.innerHTML = renderZoneA(exact, bilexRows, term);
+      if (zaEl) zaEl.innerHTML = renderZoneA(exactRows, bilexRows, term);
       if (zcEl) zcEl.innerHTML = renderZoneC(displayGroups);
     }
 
-    lastRenderFn = () => renderAll(rows, bilexRows, term);
+    lastRenderFn = () => {
+      const allRows = [...exactRows, ...partialHeadwords.map((hw) => ({
+        headword: hw.headword, headword_norm: hw.headword, dict: "", exact: 0,
+      }))];
+      renderAll(allRows, bilexRows, term);
+    };
   } catch (e) {
     console.error(e);
     setStatus("\uc624\ub958");
@@ -999,20 +1018,21 @@ async function readerSearch(term) {
 
   try {
     const isCJK2 = /[\u4e00-\u9fff]/.test(term);
-    const [rows, bilexTib, bilexSkt, bilexZh2] = await Promise.all([
-      window.Lookup.search(term, { limit: 500 }),
+    const [exactRows, bilexTib, bilexSkt, bilexZh2] = await Promise.all([
+      window.Lookup.searchExact(term, { limit: 500 }),
       window.Bilex ? window.Bilex.lookupTib(term) : [],
       window.Bilex ? window.Bilex.lookupSkt(term) : [],
       (window.Bilex && isCJK2) ? window.Bilex.lookupZh(term) : [],
     ]);
     const bilexRows = mergeBilexResults(bilexTib, bilexSkt, bilexZh2);
 
-    if (!rows.length && !bilexRows.length) {
+    if (!exactRows.length && !bilexRows.length) {
       lookupResults.innerHTML = `<p class="hint"><b>${escapeHtml(term)}</b> \u2014 \uacb0\uacfc \uc5c6\uc74c.</p>`;
       return;
     }
 
-    const { exact, partial } = classifyRows(rows);
+    for (const r of exactRows) r.exact = 1;
+    const exact = exactRows;
     const displayGroups = groupExactByDisplayGroup(exact);
 
     // Phase 1: render with placeholder for body-dependent zones
@@ -1419,44 +1439,12 @@ Promise.all([
   }
 });
 
-// ── Autocomplete ────────────────────────────────────────────────────
+// ── Autocomplete (uses Lookup's in-memory index) ───────────────────
 
-let acIndex = null; // sorted array of unique headword_norm strings
 let acHighlight = -1;
-
-// Load autocomplete index (runs in parallel with DB init)
-fetch("headwords.json")
-  .then((r) => { if (r.ok) return r.json(); throw new Error(r.status); })
-  .then((arr) => { acIndex = arr; })
-  .catch((e) => console.warn("Autocomplete index not loaded:", e));
 
 function acNormalize(s) {
   return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
-}
-
-// Binary search: find first index where acIndex[i] >= prefix
-function acLowerBound(prefix) {
-  let lo = 0, hi = acIndex.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (acIndex[mid] < prefix) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
-}
-
-function acSearch(prefix, limit) {
-  if (!acIndex || !prefix) return [];
-  limit = limit || 10;
-  const norm = acNormalize(prefix);
-  if (!norm) return [];
-  const start = acLowerBound(norm);
-  const results = [];
-  for (let i = start; i < acIndex.length && results.length < limit; i++) {
-    if (acIndex[i].startsWith(norm)) results.push(acIndex[i]);
-    else break;
-  }
-  return results;
 }
 
 function getAcList() {
@@ -1474,7 +1462,6 @@ function renderAutocomplete(matches) {
   if (!list || !matches.length) { closeAutocomplete(); return; }
   const input = acNormalize(q.value);
   list.innerHTML = matches.map((m, i) => {
-    // Highlight the matching prefix portion
     const matchLen = input.length;
     const bold = escapeHtml(m.slice(0, matchLen));
     const rest = escapeHtml(m.slice(matchLen));
@@ -1483,14 +1470,14 @@ function renderAutocomplete(matches) {
   list.style.display = "block";
 }
 
-// Autocomplete on input
+// Autocomplete on input — uses Lookup.searchPartial (in-memory, instant)
 let acTimer = null;
 q.addEventListener("input", () => {
   clearTimeout(acTimer);
   acTimer = setTimeout(() => {
     const val = q.value.trim();
     if (val.length < 2) { closeAutocomplete(); return; }
-    const matches = acSearch(val, 10);
+    const matches = window.Lookup.searchPartial(val, 10);
     acHighlight = -1;
     renderAutocomplete(matches);
   }, 150);
