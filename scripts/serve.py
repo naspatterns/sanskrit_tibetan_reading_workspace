@@ -12,7 +12,7 @@ import sys
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
-WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+WEB_DIR = Path(__file__).resolve().parent.parent / "docs"
 RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
 
 
