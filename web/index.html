@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <title>Sanskrit–Tibetan Reading Workspace</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://huggingface.co; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="description" content="Sanskrit–Tibetan–Chinese multi-dictionary reading workspace. 135 dictionaries, 3.8M entries, trilingual lookup.">
+<meta property="og:title" content="Sanskrit–Tibetan Reading Workspace">
+<meta property="og:description" content="Multi-dictionary Sanskrit–Tibetan–Chinese reading workspace with 135 dictionaries.">
+<meta property="og:type" content="website">
+<link rel="preload" href="sql-wasm.wasm" as="fetch" type="application/wasm" crossorigin>
 <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
@@ -12,8 +19,9 @@
     <h1>Sanskrit–Tibetan Reading Workspace</h1>
     <div class="mode-tabs">
       <button class="mode-tab active" data-mode="search">검색</button>
-      <button class="mode-tab" data-mode="reader">독해</button>
-      <button class="mode-tab" data-mode="vocab">어휘</button>
+      <!-- 독해/어휘 모드: v2에서 활성화 예정 -->
+      <button class="mode-tab" data-mode="reader" style="display:none">독해</button>
+      <button class="mode-tab" data-mode="vocab" style="display:none">어휘</button>
     </div>
     <span id="status" class="status"></span>
   </div>
@@ -46,11 +54,13 @@
     </div>
   </section>
   <section id="lookup-panel">
+    <button class="mobile-lookup-close" style="display:none" aria-label="닫기">✕ 닫기</button>
     <div id="lookup-header">사전 조회</div>
     <div id="lookup-results">
       <p class="hint">텍스트에서 단어를 클릭하면 사전 결과가 표시됩니다.</p>
     </div>
   </section>
+  <button class="mobile-lookup-btn" style="display:none" aria-label="사전 조회 열기">📖</button>
 </main>
 
 <!-- Vocab mode -->
@@ -77,12 +87,18 @@
   </div>
 </main>
 
-<script src="vendor/index.js"></script>
-<script src="dictnames.js?v=7"></script>
-<script src="lookup.js?v=7"></script>
-<script src="bilex.js?v=7"></script>
-<script src="reader.js?v=7"></script>
-<script src="vocab.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<footer id="site-footer">
+  <p>This project aggregates dictionary data from multiple scholarly sources for academic research.
+  See <a href="https://github.com/jibak/sanskrit_tibetan_reading_workspace/blob/main/LICENSES.md" target="_blank" rel="noopener">LICENSES.md</a> for full attribution.
+  For copyright concerns, contact <a href="mailto:naspatterns@gmail.com">naspatterns@gmail.com</a> — we will take immediate action.</p>
+</footer>
+
+<script src="vendor/index.js" integrity="sha384-5qk6GQWgVBG/l7V06WbohoowHyJEIsLh6E/83WVlhQDFH8EKMe1yAWpEmemrSUgn" crossorigin="anonymous"></script>
+<script src="dictnames.js?v=14"></script>
+<script src="lookup.js?v=14"></script>
+<script src="bilex.js?v=14"></script>
+<script src="reader.js?v=14"></script>
+<script src="vocab.js?v=14"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

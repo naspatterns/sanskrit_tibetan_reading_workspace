@@ -9,29 +9,101 @@
   // ── Sanskrit XDXF dictionaries ─────────────────────────────────────
   const SKT = {
     // Tier 1 — primary
-    "mwse.dict":    { label: "Monier-Williams (1899)",  tier: 1, defLang: "en", subgroup: "core" },
-    "aptees.dict":  { label: "Apte (Skt\u2192Eng)",     tier: 1, defLang: "en", subgroup: "core" },
-    "cappse.dict":  { label: "Cappeller (Skt\u2192Eng)", tier: 1, defLang: "en", subgroup: "core" },
-    "macdse.dict":  { label: "Macdonell (Skt\u2192Eng)", tier: 1, defLang: "en", subgroup: "core" },
-    "pwg.dict":     { label: "B\u00f6htlingk-Roth (PWG)", tier: 1, defLang: "de", subgroup: "core" },
-    "pwk.dict":     { label: "B\u00f6htlingk k\u00fcrzer (pw)", tier: 1, defLang: "de", subgroup: "core" },
+    "mwse.dict":    { label: "Monier-Williams (1899)",  tier: 1, defLang: "en", subgroup: "core", family: "mw", source: "xdxf" },
+    "aptees.dict":  { label: "Apte (Skt\u2192Eng)",     tier: 1, defLang: "en", subgroup: "core", family: "apte", source: "xdxf" },
+    "cappse.dict":  { label: "Cappeller (Skt\u2192Eng)", tier: 1, defLang: "en", subgroup: "core", source: "xdxf" },
+    "macdse.dict":  { label: "Macdonell (Skt\u2192Eng)", tier: 1, defLang: "en", subgroup: "core", family: "macdonell", source: "xdxf" },
+    "pwg.dict":     { label: "B\u00f6htlingk-Roth (PWG)", tier: 1, defLang: "de", subgroup: "core", source: "xdxf" },
+    "pwk.dict":     { label: "B\u00f6htlingk k\u00fcrzer (pw)", tier: 1, defLang: "de", subgroup: "core", source: "xdxf" },
 
     // Tier 2 — specialized
-    "vcpss.dict":   { label: "V\u0101caspatyam",         tier: 2, defLang: "sa", subgroup: "native" },
-    "skdss.dict":   { label: "\u015aabda-kalpa-druma",    tier: 2, defLang: "sa", subgroup: "native" },
-    "stcsf.dict":   { label: "Stchoupak (Skt\u2192Fr)",  tier: 2, defLang: "fr", subgroup: "core" },
-    "bursf.dict":   { label: "Burnouf (Skt\u2192Fr)",    tier: 2, defLang: "fr", subgroup: "core" },
-    "cappsg.dict":  { label: "Cappeller (Skt\u2192Ger)", tier: 2, defLang: "de", subgroup: "core" },
-    "grasg_a.dict": { label: "Grassmann Vedic",          tier: 2, defLang: "de", subgroup: "grammar" },
-    "benfse.dict":  { label: "Benfey (Skt\u2192Eng)",    tier: 2, defLang: "en", subgroup: "core" },
-    "mwse72.dict":  { label: "MW (1872)",                tier: 2, defLang: "en", subgroup: "core" },
-    "schnzsw.dict": { label: "Schmidt Nachtr\u00e4ge",   tier: 2, defLang: "de", subgroup: "core" },
-    "boppsl.dict":  { label: "Bopp (Skt\u2192Lat)",      tier: 2, defLang: "la", subgroup: "core" },
+    "vcpss.dict":   { label: "V\u0101caspatyam",         tier: 2, defLang: "sa", subgroup: "native", source: "xdxf" },
+    "skdss.dict":   { label: "\u015aabda-kalpa-druma",    tier: 2, defLang: "sa", subgroup: "native", source: "xdxf" },
+    "stcsf.dict":   { label: "Stchoupak (Skt\u2192Fr)",  tier: 2, defLang: "fr", subgroup: "core", source: "xdxf" },
+    "bursf.dict":   { label: "Burnouf (Skt\u2192Fr)",    tier: 2, defLang: "fr", subgroup: "core", source: "xdxf" },
+    "cappsg.dict":  { label: "Cappeller (Skt\u2192Ger)", tier: 2, defLang: "de", subgroup: "core", source: "xdxf" },
+    "grasg_a.dict": { label: "Grassmann Vedic",          tier: 2, defLang: "de", subgroup: "grammar", source: "xdxf" },
+    "benfse.dict":  { label: "Benfey (Skt\u2192Eng)",    tier: 2, defLang: "en", subgroup: "core", source: "xdxf" },
+    "mwse72.dict":  { label: "MW (1872)",                tier: 2, defLang: "en", subgroup: "core", family: "mw", source: "xdxf" },
+    "schnzsw.dict": { label: "Schmidt Nachtr\u00e4ge",   tier: 2, defLang: "de", subgroup: "core", source: "xdxf" },
+    "boppsl.dict":  { label: "Bopp (Skt\u2192Lat)",      tier: 2, defLang: "la", subgroup: "core", source: "xdxf" },
 
     // Tier 3 — reverse / supplementary
-    "aptese.dict":  { label: "Apte (Eng\u2192Skt)",      tier: 3, defLang: "en", subgroup: "reverse" },
-    "bores.dict":   { label: "Borooah (Eng\u2192Skt)",   tier: 3, defLang: "en", subgroup: "reverse" },
-    "mwes.dict":    { label: "MW Eng\u2192Skt",          tier: 3, defLang: "en", subgroup: "reverse" },
+    "aptese.dict":  { label: "Apte (Eng\u2192Skt)",      tier: 3, defLang: "en", subgroup: "reverse", family: "apte", source: "xdxf" },
+    "bores.dict":   { label: "Borooah (Eng\u2192Skt)",   tier: 3, defLang: "en", subgroup: "reverse", source: "xdxf" },
+    "mwes.dict":    { label: "MW Eng\u2192Skt",          tier: 3, defLang: "en", subgroup: "reverse", family: "mw", source: "xdxf" },
+  };
+
+  // ── SANDIC dictionaries ──────────────────────────────────────────────
+  const SANDIC = {
+    "mwse.sandic":        { label: "MW (SANDIC)",          tier: 2, defLang: "en", subgroup: "core", family: "mw", source: "sandic" },
+    "aptese.sandic":      { label: "Apte (SANDIC)",        tier: 2, defLang: "en", subgroup: "core", family: "apte", source: "sandic" },
+    "macdse.sandic":      { label: "Macdonell (SANDIC)",   tier: 2, defLang: "en", subgroup: "core", family: "macdonell", source: "sandic" },
+    "dhatupatha.sandic":  { label: "Dh\u0101tup\u0101\u1e6dha (SANDIC)", tier: 2, defLang: "en", subgroup: "grammar", family: "dhatupatha", source: "sandic" },
+  };
+
+  // ── GRETIL HTML dictionaries ─────────────────────────────────────────
+  const GRETIL = {
+    "grasg_p.gretil":     { label: "Grassmann Rig-Veda (P)", tier: 2, defLang: "de", subgroup: "grammar", source: "gretil" },
+    "pese.gretil":        { label: "Pur\u0101\u1e47ic Encyclopaedia", tier: 2, defLang: "en", subgroup: "domain", source: "gretil" },
+    "vedconc.gretil":     { label: "Vedic Concordance", tier: 2, defLang: "en", subgroup: "domain", family: "vedconc", source: "gretil" },
+  };
+
+  // ── Apple dictionaries ───────────────────────────────────────────────
+  const APPLE = {
+    // Tier 1 — major unique dictionaries
+    "bhsd.apple":         { label: "BHSD (Buddhist Hybrid Skt)", tier: 1, defLang: "en", subgroup: "core", source: "apple" },
+    "kalpadruma.apple":   { label: "\u015aabdakalpadruma",  tier: 1, defLang: "sa", subgroup: "native", source: "apple" },
+    "vacaspatyam.apple":  { label: "V\u0101caspatyam",     tier: 1, defLang: "sa", subgroup: "native", source: "apple" },
+    "pali-en.apple":      { label: "P\u0101li\u2192English", tier: 1, defLang: "en", subgroup: "core", source: "apple" },
+    "bod-rgya.apple":     { label: "Tibetan Great Dict (\u0f56\u0f7c\u0f51\u0f0b\u0f62\u0f92\u0fb1)", tier: 1, defLang: "bo", subgroup: "native", source: "apple" },
+
+    // Tier 2 — specialized
+    "apte-bi.apple":      { label: "Apte Bilingual",       tier: 2, defLang: "en", subgroup: "core", family: "apte", source: "apple" },
+    "mw-sdt.apple":       { label: "MW (Skt-Deva-Tib)",    tier: 2, defLang: "en", subgroup: "core", family: "mw", source: "apple" },
+    "amara.apple":        { label: "Amarako\u015ba",        tier: 2, defLang: "sa", subgroup: "native", source: "apple" },
+    "amara-ctx.apple":    { label: "Amarako\u015ba (context)", tier: 2, defLang: "sa", subgroup: "native", source: "apple" },
+    "amara-onto.apple":   { label: "Amarako\u015ba (ontology)", tier: 2, defLang: "sa", subgroup: "native", source: "apple" },
+    "bloomfield.apple":   { label: "Bloomfield Vedic Conc.", tier: 2, defLang: "en", subgroup: "domain", family: "vedconc", source: "apple" },
+    "dcs-freq.apple":     { label: "DCS Word Frequency",   tier: 2, defLang: "en", subgroup: "domain", source: "apple" },
+    "dhatupatha-kr.apple":{ label: "Dh\u0101tup\u0101\u1e6dha (K\u1e5b\u1e63\u1e47\u0101c\u0101rya)", tier: 2, defLang: "sa", subgroup: "grammar", family: "dhatupatha", source: "apple" },
+    "dhatupatha-sa.apple":{ label: "Dh\u0101tup\u0101\u1e6dha", tier: 2, defLang: "sa", subgroup: "grammar", family: "dhatupatha", source: "apple" },
+    "chandas.apple":      { label: "Chandas (Prosody)",     tier: 2, defLang: "sa", subgroup: "grammar", source: "apple" },
+    "ashtadhyayi-en.apple":{ label: "A\u1e63\u1e6d\u0101dhy\u0101y\u012b (English)", tier: 2, defLang: "en", subgroup: "grammar", source: "apple" },
+    "ashtadhyayi-anv.apple":{ label: "A\u1e63\u1e6d\u0101dhy\u0101y\u012b (Anuv\u1e5btti)", tier: 2, defLang: "sa", subgroup: "grammar", source: "apple" },
+    "bopp.apple":         { label: "Bopp Comparative",      tier: 2, defLang: "en", subgroup: "grammar", source: "apple" },
+    "vedic-rituals.apple":{ label: "Vedic Rituals (Hillebrandt)", tier: 2, defLang: "en", subgroup: "domain", source: "apple" },
+    "abhyankar.apple":    { label: "Abhyankar Grammar Dict", tier: 2, defLang: "en", subgroup: "grammar", source: "apple" },
+    "siddh-kaumudi.apple":{ label: "Siddh\u0101nta Kaumud\u012b", tier: 2, defLang: "sa", subgroup: "grammar", source: "apple" },
+    "jnu-tinanta.apple":  { label: "Ti\u1e45anta (JNU Verbs)", tier: 2, defLang: "sa", subgroup: "grammar", source: "apple" },
+
+    // Tier 3 — misc
+    "ekaksara.apple":     { label: "Ek\u0101k\u1e63aran\u0101mam\u0101l\u0101", tier: 3, defLang: "sa", subgroup: "native", source: "apple" },
+    "computer-skt.apple": { label: "Computer Terms (Skt)",  tier: 3, defLang: "en", subgroup: "domain", source: "apple" },
+
+    // Heritage Declension — Series A san-eng (10 volumes)
+    "decl-a01.apple":     { label: "Heritage Decl A-01 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a02.apple":     { label: "Heritage Decl A-02 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a03.apple":     { label: "Heritage Decl A-03 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a04.apple":     { label: "Heritage Decl A-04 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a05.apple":     { label: "Heritage Decl A-05 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a06.apple":     { label: "Heritage Decl A-06 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a07.apple":     { label: "Heritage Decl A-07 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a08.apple":     { label: "Heritage Decl A-08 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a09.apple":     { label: "Heritage Decl A-09 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a10.apple":     { label: "Heritage Decl A-10 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    // Heritage Declension — Series A san-san (5 volumes)
+    "decl-a1-ss.apple":   { label: "Heritage Decl A-1 (san\u2192san)", tier: 2, defLang: "sa", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a2-ss.apple":   { label: "Heritage Decl A-2 (san\u2192san)", tier: 2, defLang: "sa", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a3-ss.apple":   { label: "Heritage Decl A-3 (san\u2192san)", tier: 2, defLang: "sa", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a4-ss.apple":   { label: "Heritage Decl A-4 (san\u2192san)", tier: 2, defLang: "sa", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-a5-ss.apple":   { label: "Heritage Decl A-5 (san\u2192san)", tier: 2, defLang: "sa", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    // Heritage Declension — Series B san-eng (3 volumes)
+    "decl-b1.apple":      { label: "Heritage Decl B-1 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-b2.apple":      { label: "Heritage Decl B-2 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    "decl-b3.apple":      { label: "Heritage Decl B-3 (san\u2192eng)", tier: 2, defLang: "en", subgroup: "grammar", family: "heritage-decl", source: "apple" },
+    // Heritage Declension — Series B san-san (1 volume)
+    "decl-b-ss.apple":    { label: "Heritage Decl B (san\u2192san)",   tier: 2, defLang: "sa", subgroup: "grammar", family: "heritage-decl", source: "apple" },
   };
 
   // ── Tibetan dicts (Steinert collection) ────────────────────────────
@@ -144,26 +216,30 @@
     }
   }
 
+  // All dictionaries merged for lookup
+  const ALL = Object.assign({}, SKT, SANDIC, GRETIL, APPLE, TIB);
+
   function label(name) {
-    if (SKT[name]) {
-      const s = SKT[name];
-      return { label: s.label, group: "Sanskrit", lang: "sa",
-               tier: s.tier, defLang: s.defLang, subgroup: s.subgroup };
-    }
-    if (TIB[name]) {
-      const t = TIB[name];
-      return { label: t.label, group: "Tibetan", lang: "bo",
-               tier: t.tier, defLang: t.defLang, subgroup: t.subgroup };
+    if (ALL[name]) {
+      const s = ALL[name];
+      // Determine group and lang from source/context
+      const isTib = name.startsWith("tib_") || s.defLang === "bo";
+      const isPali = name === "pali-en.apple";
+      const group = isTib ? "Tibetan" : isPali ? "P\u0101li" : "Sanskrit";
+      const lang = isTib ? "bo" : isPali ? "pi" : "sa";
+      return { label: s.label, group, lang,
+               tier: s.tier, defLang: s.defLang, subgroup: s.subgroup,
+               family: s.family || null, source: s.source || null };
     }
     if (name === "mahavyutpatti")
       return { label: "Mah\u0101vyutpatti (Skt\u2194Tib)", group: "Bilingual", lang: "sa-bo",
-               tier: 1, defLang: "equiv", subgroup: "equiv" };
+               tier: 1, defLang: "equiv", subgroup: "equiv", family: null, source: "bilex" };
     if (name === "apple_bod_rgya_tshig_mdzod")
-      return { label: "Bod rgya tshig mdzod chen mo (\u0f56\u0f7c\u0f51\u0f0b\u0f62\u0f92\u0fb1\u0f0b\u0f5a\u0f72\u0f42\u0f0b\u0f58\u0f5b\u0f7c\u0f51)", group: "Tibetan", lang: "bo",
-               tier: 1, defLang: "bo", subgroup: "native" };
+      return { label: "Bod rgya tshig mdzod chen mo", group: "Tibetan", lang: "bo",
+               tier: 1, defLang: "bo", subgroup: "native", family: null, source: "apple" };
     // Unknown dict fallback
     return { label: name, group: "Other", lang: "?",
-             tier: 3, defLang: "mixed", subgroup: "domain" };
+             tier: 3, defLang: "mixed", subgroup: "domain", family: null, source: null };
   }
 
   window.DictNames = { label, DISPLAY_GROUPS, getDisplayGroupIndex };

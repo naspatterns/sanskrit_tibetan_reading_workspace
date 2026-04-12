@@ -73,7 +73,7 @@ main {
   font-size: 0.68rem; padding: 2px 8px;
   border-radius: 10px; border: 1px solid #ccc;
   background: #fff; color: #777; cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .filter-pill.active {
   background: var(--pill-color, #888);
@@ -172,7 +172,16 @@ main {
   color: #6a5d3a;
 }
 .bilex-count { font-weight: normal; color: #999; font-size: 0.75rem; }
-.bilex-entries { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; }
+.bilex-exact-group { display: flex; flex-wrap: wrap; gap: 0.3rem 0.6rem; margin-bottom: 0.4rem; }
+.bilex-partial-group { display: flex; flex-wrap: wrap; gap: 0.3rem 0.6rem; }
+.bilex-partial-label {
+  width: 100%;
+  font-size: 0.72rem;
+  color: #999;
+  margin-top: 0.2rem;
+  border-top: 1px solid #e4e0d0;
+  padding-top: 0.3rem;
+}
 .bilex-entry {
   font-size: 0.85rem;
   padding: 0.2rem 0.5rem;
@@ -180,13 +189,29 @@ main {
   border-radius: 3px;
   border: 1px solid #e4e0d0;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 .bilex-entry.bilex-exact {
   background: #fffbef;
   border-color: #e0d49a;
 }
+.bilex-entry.bilex-hidden { display: none; }
+.bilex-src {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #fff;
+  background: #b0a88a;
+  border-radius: 2px;
+  padding: 0 3px;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.bilex-entry.bilex-exact .bilex-src { background: #8a7a4a; }
 .bilex-num { color: #aaa; font-size: 0.72rem; }
 .bilex-arrow { color: #bbb; font-size: 0.8rem; }
+.bilex-zh { color: #8a3a1a; font-size: 0.88rem; font-weight: 500; }
 .bilex-cat { color: #999; font-size: 0.72rem; }
 .bilex-link {
   cursor: pointer;
@@ -196,6 +221,17 @@ main {
 .bilex-link:hover { text-decoration: underline; }
 .bilex-skt { color: #1a3a5a; }
 .bilex-tib { color: #5a1a3a; }
+.bilex-more-btn {
+  font-size: 0.75rem;
+  color: #6a5d3a;
+  background: none;
+  border: 1px dashed #d8d5c8;
+  border-radius: 3px;
+  padding: 0.15rem 0.6rem;
+  cursor: pointer;
+  margin-top: 0.2rem;
+}
+.bilex-more-btn:hover { background: #f8f6f0; border-color: #b0a88a; }
 
 /* ── Zone C: Display groups + dict blocks ───────────────────────── */
 .zone-c { margin-bottom: 1rem; }
@@ -265,6 +301,30 @@ main {
   color: #333;
   word-wrap: break-word;
 }
+.entry .body-ko {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #2a2a2a;
+  word-wrap: break-word;
+  margin-bottom: 0.3rem;
+}
+.body-orig-toggle {
+  margin-top: 0.2rem;
+}
+.body-orig-toggle summary {
+  font-size: 0.75rem;
+  color: #999;
+  cursor: pointer;
+  user-select: none;
+}
+.body-orig-toggle summary:hover { color: #666; }
+.body-orig-toggle .body {
+  font-size: 0.8rem;
+  color: #888;
+  border-left: 2px solid #ddd;
+  padding-left: 0.5rem;
+  margin-top: 0.3rem;
+}
 
 /* Tier 3 toggle */
 .tier3-toggle {
@@ -281,6 +341,29 @@ main {
   width: 100%;
 }
 .tier3-btn:hover { background: #f4f4ef; color: #555; }
+
+/* Family alternate source toggle */
+.family-alt-toggle {
+  padding: 0.15rem 0.7rem 0.15rem 1.2rem;
+}
+.family-alt-btn {
+  font-size: 0.78rem;
+  color: #777;
+  background: none;
+  border: 1px dashed #d0c8b0;
+  border-radius: 4px;
+  padding: 0.2rem 0.7rem;
+  cursor: pointer;
+}
+.family-alt-btn:hover { background: #f5f0e5; color: #555; }
+.family-alt-content {
+  margin-left: 0.5rem;
+  border-left: 2px dotted #d0c8b0;
+  padding-left: 0.3rem;
+}
+.family-alt-content .dict-block {
+  opacity: 0.85;
+}
 
 /* ── Zone D: Partial match headword list ────────────────────────── */
 .zone-d {
@@ -481,7 +564,7 @@ main {
   border: 1px solid #b8c8d8;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s;
 }
 .vocab-save-btn:hover { background: #d8e8f4; border-color: #8ab; }
 .vocab-save-btn.saved {
@@ -745,7 +828,83 @@ main {
 @media (max-width: 700px) {
   #search-mode { grid-template-columns: 1fr; }
   #sidebar { display: none; }
-  #reader-mode { grid-template-columns: 1fr; }
+  #reader-mode { grid-template-columns: 1fr; position: relative; }
   #file-tree { display: none; }
-  #lookup-panel { display: none; }
+
+  /* Mobile lookup panel: bottom sheet */
+  #lookup-panel {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    max-height: 55vh;
+    z-index: 20;
+    background: #fff;
+    border-top: 2px solid #1a3a5a;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+    overflow-y: auto;
+    border-radius: 12px 12px 0 0;
+  }
+  #lookup-panel.mobile-open { display: block; }
+
+  /* Floating button to toggle lookup panel */
+  .mobile-lookup-btn {
+    display: flex !important;
+    position: fixed;
+    bottom: 1rem; right: 1rem;
+    z-index: 21;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: #1a3a5a;
+    color: #fff;
+    font-size: 1.2rem;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    cursor: pointer;
+  }
+
+  /* Close button inside lookup panel */
+  .mobile-lookup-close {
+    display: block !important;
+    position: sticky;
+    top: 0;
+    text-align: right;
+    padding: 0.4rem 0.8rem;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: #666;
+    border: none;
+    width: 100%;
+  }
 }
+
+/* ── Init error ────────────────────────────────────────────────── */
+.init-error {
+  max-width: 520px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background: #fff8f0;
+  border: 1px solid #e8c080;
+  border-radius: 6px;
+  color: #6a4000;
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+.init-error h3 { margin: 0 0 0.5rem; font-size: 1rem; color: #a05000; }
+.init-error code { background: #f0e0c8; padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.82rem; }
+
+/* ── Footer ─────────────────────────────────────────────────────── */
+#site-footer {
+  padding: 1rem 1.5rem;
+  background: #f4f4ef;
+  border-top: 1px solid #ddd;
+  text-align: center;
+  font-size: 0.72rem;
+  color: #888;
+  line-height: 1.6;
+}
+#site-footer a { color: #5a7a9a; text-decoration: none; }
+#site-footer a:hover { text-decoration: underline; }

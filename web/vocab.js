@@ -136,13 +136,23 @@
   // Import cards from JSON array
   function importCards(cards) {
     return new Promise((resolve, reject) => {
+      if (!Array.isArray(cards)) { reject(new Error("Invalid cards")); return; }
       const tx = db.transaction(STORE, "readwrite");
       const store = tx.objectStore(STORE);
       let count = 0;
       for (const card of cards) {
-        delete card.id; // let auto-increment assign new ids
-        card.ts = card.ts || Date.now();
-        store.add(card);
+        const safe = {
+          headword: String(card.headword || ""),
+          meaning: String(card.meaning || ""),
+          lang: String(card.lang || "sa"),
+          source: String(card.source || ""),
+          lineNum: card.lineNum || null,
+          context: String(card.context || ""),
+          note: String(card.note || ""),
+          status: ["new","learning","known"].includes(card.status) ? card.status : "new",
+          ts: typeof card.ts === "number" ? card.ts : Date.now(),
+        };
+        store.add(safe);
         count++;
       }
       tx.oncomplete = () => resolve(count);

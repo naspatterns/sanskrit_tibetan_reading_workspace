@@ -5,6 +5,14 @@
   let workerPromise = null;
   let dictMeta = null; // {name -> {id, lang}}
 
+  // DB URL: use local path for localhost, HuggingFace CDN for production
+  function getDictUrl() {
+    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+      return "../dict.sqlite?v=" + Date.now();
+    }
+    return "https://huggingface.co/datasets/naspatterns/sanskrit-tibetan-dict/resolve/main/dict.sqlite";
+  }
+
   async function init() {
     if (workerPromise) return workerPromise;
     workerPromise = window.createDbWorker(
@@ -13,14 +21,13 @@
           from: "inline",
           config: {
             serverMode: "full",
-            url: "../dict.sqlite?v=" + Date.now(),
+            url: getDictUrl(),
             requestChunkSize: 4096,
           },
         },
       ],
       "vendor/sqlite.worker.js",
       "sql-wasm.wasm"
-      // 4th arg is maxBytesToRead — leaving undefined = Infinity.
     );
     const w = await workerPromise;
     const rows = await w.db.query("SELECT id, name, lang FROM dictionaries");
@@ -49,7 +56,7 @@
     // exact matches and multi-word headwords containing the token. Sort
     // exact matches to the top so dharma → dharma comes before dharmakāya.
     const sql = `
-      SELECT e.headword, e.body, d.name AS dict,
+      SELECT e.headword, e.body, e.body_ko, d.name AS dict,
              (e.headword_norm = ?) AS exact
         FROM entries_fts f
         JOIN entries e ON e.id = f.rowid

@@ -70,6 +70,11 @@ class RangeHandler(SimpleHTTPRequestHandler):
     def end_headers(self) -> None:  # noqa: N802
         # sql.js-httpvfs also wants Accept-Ranges on normal responses.
         self.send_header("Accept-Ranges", "bytes")
+        # Security headers
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-XSS-Protection", "1; mode=block")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         super().end_headers()
 
 

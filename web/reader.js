@@ -13,7 +13,10 @@
   function getUploads() {
     try {
       const raw = localStorage.getItem(UPLOADS_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+      }
     } catch (_) {}
     return {}; // { "upload/sa/myfile.txt": { name, lang, text, ts } }
   }
@@ -89,6 +92,7 @@
       currentPath = path;
       return text;
     }
+    if (path.includes("..") || path.startsWith("/")) throw new Error("Invalid path");
     const res = await fetch(BASE + "/" + path + "?v=" + Date.now());
     if (!res.ok) throw new Error("Failed to load: " + path);
     const text = await res.text();
@@ -258,12 +262,12 @@
     parts.push(`</div>`);
     container.innerHTML = parts.join("");
 
-    container.querySelectorAll(".token").forEach((el) => {
-      el.addEventListener("click", () => {
-        container.querySelectorAll(".token-active").forEach((t) => t.classList.remove("token-active"));
-        el.classList.add("token-active");
-        onTokenClick(el.dataset.search);
-      });
+    container.addEventListener("click", (e) => {
+      const tok = e.target.closest(".token");
+      if (!tok) return;
+      container.querySelectorAll(".token-active").forEach((t) => t.classList.remove("token-active"));
+      tok.classList.add("token-active");
+      onTokenClick(tok.dataset.search);
     });
   }
 
@@ -324,6 +328,11 @@
     fileInput.addEventListener("change", () => {
       const file = fileInput.files[0];
       if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        alert("파일 크기가 너무 큽니다 (최대 5MB).");
+        fileInput.value = "";
+        return;
+      }
       const nameInput = dialog.querySelector("#upload-name");
       if (!nameInput.value) nameInput.value = file.name;
       const reader = new FileReader();
@@ -345,6 +354,10 @@
       const text = dialog.querySelector("#upload-paste").value || fileText;
       let name = dialog.querySelector("#upload-name").value.trim();
       if (!text) { alert("텍스트를 입력하거나 파일을 선택하세요."); return; }
+      if (text.length > 5 * 1024 * 1024) {
+        alert("텍스트 크기가 너무 큽니다 (최대 5MB).");
+        return;
+      }
       if (!name) name = "untitled_" + Date.now() + ".txt";
       if (!name.endsWith(".txt")) name += ".txt";
 

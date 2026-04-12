@@ -1,10 +1,25 @@
 build/
-data-source/xdxf/
-data-source/apple-converted/
-data-source/bilex/
+data-source/
 __pycache__/
 *.pyc
 .DS_Store
 .venv/
 web/dict.sqlite
 web/bilex.sqlite
+
+# 내부 문서
+CLAUDE.md
+BUILD_STATUS.md
+
+# 빌드 스크립트 (로컬 경로 포함)
+scripts/
+!scripts/serve.py
+
+# Claude Code 설정
+.claude/
+
+# 루트 로컬 파일
+/*.sqlite
+/*.doc
+/*.pdf
+/*.txt
