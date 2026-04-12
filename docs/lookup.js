@@ -1,17 +1,19 @@
-// lookup.js — Hybrid search: in-memory index + lazy DB body loading.
+// lookup.js — Hybrid search: in-memory indices + lazy DB body loading.
 //
-// Phase 0 (instant): headwords.json in-memory → partial matches for Zone D
-// Phase 1 (fast):    search.sqlite B-tree → exact match entries (id, dict)
-// Phase 2 (lazy):    dict.sqlite → full body/body_ko on demand
+// Phase 0 (instant): headwords.json → partial matches (Zone D)
+//                     zone_a.json → quick snippets (Zone A)
+// Phase 1 (fast):     search.sqlite B-tree → exact match entries (id, dict)
+// Phase 2 (lazy):     dict.sqlite → full body/body_ko on demand (Zone C)
 //
 // Exposes window.Lookup = { init(), searchExact(term), searchPartial(prefix, limit),
-//   fetchBodies(ids), dicts(), normalize() }.
+//   getSnippets(term), fetchBodies(ids), dicts(), normalize() }.
 
 (function () {
   let searchWorkerPromise = null;
   let contentWorkerPromise = null;
   let dictMeta = null; // {name -> {id, lang}}
   let acIndex = null; // sorted headword_norm array (loaded from headwords.json)
+  let zoneAData = null; // zone_a.json: {d: [dict_names], i: {norm → [[di, snippet]]}}
 
   // DB URLs: local symlinks for dev, HuggingFace CDN for production
   const HF_BASE =
@@ -33,12 +35,20 @@
       : HF_BASE + "dict.sqlite";
   }
 
-  // ── In-memory index (headwords.json) ──
+  // ── In-memory indices ──
+
   function loadHeadwords() {
     return fetch("headwords.json")
       .then((r) => { if (r.ok) return r.json(); throw new Error(r.status); })
       .then((arr) => { acIndex = arr; })
       .catch((e) => console.warn("Headword index not loaded:", e));
+  }
+
+  function loadZoneA() {
+    return fetch("zone_a.json")
+      .then((r) => { if (r.ok) return r.json(); throw new Error(r.status); })
+      .then((data) => { zoneAData = data; })
+      .catch((e) => console.warn("Zone A index not loaded:", e));
   }
 
   // Binary search: first index where acIndex[i] >= prefix
@@ -62,25 +72,29 @@
     const results = [];
     for (let i = start; i < acIndex.length && results.length < limit; i++) {
       if (acIndex[i].startsWith(norm)) {
-        // Skip exact match — that comes from DB with full metadata
         if (acIndex[i] !== norm) results.push(acIndex[i]);
       } else break;
     }
     return results;
   }
 
-  // Check if exact headword exists in memory index
-  function hasExact(term) {
-    if (!acIndex) return false;
+  // Get Zone A snippets from memory — instant
+  function getSnippets(term) {
+    if (!zoneAData) return null;
     const norm = normalize(term);
-    const idx = lowerBound(norm);
-    return idx < acIndex.length && acIndex[idx] === norm;
+    const entries = zoneAData.i[norm];
+    if (!entries) return null;
+    return entries.map(([di, snippet]) => ({
+      dict: zoneAData.d[di],
+      snippet: snippet,
+    }));
   }
 
   // ── Worker 1: Search index (loaded on first search) ──
   async function init() {
-    // Start headword loading immediately (non-blocking)
+    // Start in-memory indices loading (non-blocking, parallel)
     loadHeadwords();
+    loadZoneA();
     if (searchWorkerPromise) return searchWorkerPromise;
     searchWorkerPromise = window.createDbWorker(
       [
@@ -89,7 +103,7 @@
           config: {
             serverMode: "full",
             url: getSearchUrl(),
-            requestChunkSize: 262144, // 256KB
+            requestChunkSize: 262144,
           },
         },
       ],
@@ -115,7 +129,7 @@
           config: {
             serverMode: "full",
             url: getDictUrl(),
-            requestChunkSize: 1048576, // 1MB chunks for large DB
+            requestChunkSize: 1048576,
           },
         },
       ],
@@ -125,20 +139,18 @@
     return contentWorkerPromise;
   }
 
-  // NFD + strip combining + lowercase. Matches build_dict_db.normalize.
+  // NFD + strip combining + lowercase
   function normalize(s) {
     return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
   }
 
   // ── Phase 1: Exact match search from search.sqlite ──
-  // Only fetches rows where headword_norm exactly matches — minimal HTTP requests.
   async function searchExact(term, opts = {}) {
     const limit = opts.limit || 500;
     const worker = await init();
     const norm = normalize(term);
     if (!norm) return [];
 
-    // Single equality lookup on B-tree index: ~3-4 HTTP Range requests
     const sql = `
       SELECT e.id, e.headword, e.headword_norm, d.name AS dict, 1 AS exact
         FROM entries e
@@ -163,7 +175,7 @@
   }
 
   window.Lookup = {
-    init, searchExact, searchPartial, hasExact,
+    init, searchExact, searchPartial, getSnippets,
     fetchBodies, normalize, dicts,
   };
 })();

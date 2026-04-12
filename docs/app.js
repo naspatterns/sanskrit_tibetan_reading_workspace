@@ -209,6 +209,48 @@ function renderZoneA(exactRows, bilexRows, searchTerm) {
   return parts.join("");
 }
 
+// ── Zone A (instant): from pre-computed snippets ────────────────────
+
+function renderZoneAInstant(searchTerm, bilexRows) {
+  const snippets = window.Lookup.getSnippets(searchTerm);
+  if (!snippets || !snippets.length) return "";
+
+  const parts = [];
+  parts.push(`<section class="zone-a">`);
+  parts.push(`<div class="qa-headword">${escapeHtml(searchTerm)}</div>`);
+
+  // Bilex inline
+  if (bilexRows && bilexRows.length) {
+    const exactBilex = bilexRows.filter((r) => r.exact);
+    if (exactBilex.length) {
+      const items = exactBilex.slice(0, 3).map((r) => {
+        const skt = r.skt_iast ? `<span class="bilex-skt">${escapeHtml(r.skt_iast)}</span>` : "";
+        const tib = r.tib_wylie ? `<span class="bilex-tib">${escapeHtml(r.tib_wylie)}</span>` : "";
+        const numTag = r.entry_num != null ? ` <span class="bilex-num">[Mvy ${r.entry_num}]</span>` : "";
+        return `${skt} <span class="bilex-arrow">\u2194</span> ${tib}${numTag}`;
+      });
+      parts.push(`<div class="qa-bilex">${items.join(" \u00b7 ")}</div>`);
+    }
+  }
+
+  // Snippets from core dicts
+  parts.push(`<div class="qa-lines">`);
+  for (const { dict, snippet } of snippets) {
+    const meta = window.DictNames.label(dict);
+    const shortLabel = meta.label.replace(/\s*\(.*\)$/, "").replace(/Skt\u2192|Eng\u2192/, "");
+    const groupColor = window.DictNames.DISPLAY_GROUPS[window.DictNames.getDisplayGroupIndex(meta)]?.color || "#999";
+    parts.push(
+      `<div class="qa-line" data-dict="${escapeHtml(dict)}">
+         <span class="qa-dict-tag" style="border-color:${safeColor(groupColor)}">${escapeHtml(shortLabel)}</span>
+         <span class="qa-snippet">${escapeHtml(snippet)}\u2026</span>
+       </div>`
+    );
+  }
+  parts.push(`</div>`);
+  parts.push(`</section>`);
+  return parts.join("");
+}
+
 // ── Zone B: Multilingual equivalents (multi-source) ─────────────────
 
 function renderZoneB(bilexRows) {
@@ -798,33 +840,37 @@ async function search() {
   try {
     const isCJK = /[\u4e00-\u9fff]/.test(term);
 
-    // ── Phase 0: Instant partial matches from in-memory index ──
+    // ── Phase 0: Instant results from in-memory indices ──
     const memPartials = window.Lookup.searchPartial(term, 200);
     const partialHeadwords = memPartials.map((hw) => ({
       headword: hw, count: 0, dicts: new Set(),
     }));
 
-    // Show Zone D immediately from memory (no DB needed)
-    collapseOverride.clear();
-    results.innerHTML = [
-      `<div id="zone-a-container"></div>`,
-      `<div id="zone-b-container"></div>`,
-      `<div id="zone-d-anchor"></div>`,
-      renderZoneD(partialHeadwords),
-      `<div id="zone-c-container"><p class="hint">\uc0ac\uc804 \uac80\uc0c9 \uc911...</p></div>`,
-    ].join("");
-
-    // ── Phase 1: DB exact matches + bilex (in parallel) ──
-    const [exactRows, bilexTib, bilexSkt, bilexZh] = await Promise.all([
-      window.Lookup.searchExact(term, { limit: 500 }),
+    // Bilex from memory (instant)
+    const [bilexTib, bilexSkt, bilexZh] = await Promise.all([
       window.Bilex ? window.Bilex.lookupTib(term) : [],
       window.Bilex ? window.Bilex.lookupSkt(term) : [],
       (window.Bilex && isCJK) ? window.Bilex.lookupZh(term) : [],
     ]);
     const bilexRows = mergeBilexResults(bilexTib, bilexSkt, bilexZh);
 
-    const ms = Math.round(performance.now() - t0);
-    setStatus(`\uc815\ud655 ${exactRows.length}\uac74 + \uad00\ub828 ${partialHeadwords.length}\uac74 \u00b7 ${ms}ms`);
+    // Render Zone A + Zone B + Zone D immediately (all from memory)
+    collapseOverride.clear();
+    results.innerHTML = [
+      renderZoneAInstant(term, bilexRows),
+      renderZoneB(bilexRows),
+      `<div id="zone-d-anchor"></div>`,
+      renderZoneD(partialHeadwords),
+      `<div id="zone-c-container"><p class="hint">\uc0ac\uc804 \ubcf8\ubb38 \ub85c\ub529 \uc911...</p></div>`,
+    ].join("");
+
+    const ms0 = Math.round(performance.now() - t0);
+    setStatus(`\uc989\uc2dc \uacb0\uacfc \u00b7 ${ms0}ms \u2014 \uc804\ubb38 \ub85c\ub529 \uc911...`);
+
+    // ── Phase 1: DB exact matches (for Zone C body loading) ──
+    const exactRows = await window.Lookup.searchExact(term, { limit: 500 });
+
+    const ms1 = Math.round(performance.now() - t0);
 
     if (!exactRows.length && !bilexRows.length && !partialHeadwords.length) {
       results.innerHTML = `<p class="hint"><b>${escapeHtml(term)}</b> \u2014 \uacb0\uacfc \uc5c6\uc74c.</p>`;
@@ -836,19 +882,11 @@ async function search() {
     // Mark all DB rows as exact
     for (const r of exactRows) r.exact = 1;
     const displayGroups = groupExactByDisplayGroup(exactRows);
-
-    // Update Zone B with bilex results
-    const zbEl = document.getElementById("zone-b-container");
-    if (zbEl) zbEl.innerHTML = renderZoneB(bilexRows);
-
-    // Update Zone C placeholder
-    const zcEl = document.getElementById("zone-c-container");
-    if (zcEl) zcEl.innerHTML = exactRows.length
-      ? '<p class="hint">\uc0ac\uc804 \ubcf8\ubb38 \ub85c\ub529 \uc911...</p>' : '';
-
     renderSidebar(displayGroups, exactRows.length + partialHeadwords.length, bilexRows, partialHeadwords.length);
+    setStatus(`\uc815\ud655 ${exactRows.length}\uac74 + \uad00\ub828 ${partialHeadwords.length}\uac74 \u00b7 ${ms1}ms \u2014 \ubcf8\ubb38 \ub85c\ub529 \uc911...`);
 
-    // ── Phase 2: Lazy body loading (dict.sqlite) for exact matches ──
+    // ── Phase 2: Lazy body loading (dict.sqlite) for Zone C ──
+    const zcEl = document.getElementById("zone-c-container");
     if (exactRows.length) {
       const exactIds = exactRows.map((r) => r.id);
       const bodies = await window.Lookup.fetchBodies(exactIds);
@@ -857,9 +895,15 @@ async function search() {
         const b = bodyMap.get(r.id);
         if (b) { r.body = b.body; r.body_ko = b.body_ko; }
       }
-      const zaEl = document.getElementById("zone-a-container");
-      if (zaEl) zaEl.innerHTML = renderZoneA(exactRows, bilexRows, term);
+      // Replace instant Zone A with full Zone A (more dicts, longer snippets)
+      const zaSection = results.querySelector(".zone-a");
+      if (zaSection) {
+        const fullZoneA = renderZoneA(exactRows, bilexRows, term);
+        if (fullZoneA) zaSection.outerHTML = fullZoneA;
+      }
       if (zcEl) zcEl.innerHTML = renderZoneC(displayGroups);
+      const ms2 = Math.round(performance.now() - t0);
+      setStatus(`\uc815\ud655 ${exactRows.length}\uac74 + \uad00\ub828 ${partialHeadwords.length}\uac74 \u00b7 ${ms2}ms`);
     }
 
     lastRenderFn = () => {
