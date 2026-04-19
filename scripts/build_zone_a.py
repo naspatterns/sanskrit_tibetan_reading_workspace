@@ -26,11 +26,27 @@ from pathlib import Path
 
 BUILD_DIR = Path(__file__).resolve().parent.parent / "build"
 DOCS_DIR = Path(__file__).resolve().parent.parent / "docs"
+SCRIPTS_DIR = Path(__file__).resolve().parent
 DICT_DB = BUILD_DIR / "dict.sqlite"
+DICTS_CONFIG = SCRIPTS_DIR / "zone_a_dicts.txt"
 
-# Core dictionaries for Zone A (covers Sanskrit + Tibetan)
-CORE_DICTS = ["mwse.dict", "macdse.dict", "tib_02-RangjungYeshe"]
 SNIPPET_LEN = 50
+
+
+def load_core_dicts() -> list[str]:
+    """Load dict names from zone_a_dicts.txt, one per line, # comments ignored."""
+    if not DICTS_CONFIG.exists():
+        raise FileNotFoundError(
+            f"{DICTS_CONFIG} not found. See the file header for format."
+        )
+    names: list[str] = []
+    for raw in DICTS_CONFIG.read_text(encoding="utf-8").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if line:
+            names.append(line)
+    if not names:
+        raise ValueError(f"{DICTS_CONFIG} has no dict names")
+    return names
 
 
 def main() -> int:
@@ -38,21 +54,28 @@ def main() -> int:
         print(f"ERROR: {DICT_DB} not found.")
         return 1
 
+    core_dicts = load_core_dicts()
     conn = sqlite3.connect(str(DICT_DB))
 
     dict_ids: dict[int, str] = {}
     for r in conn.execute("SELECT id, name FROM dictionaries"):
-        if r[1] in CORE_DICTS:
+        if r[1] in core_dicts:
             dict_ids[r[0]] = r[1]
+
+    missing = [d for d in core_dicts if d not in dict_ids.values()]
+    if missing:
+        print(f"WARNING: these dicts from {DICTS_CONFIG.name} are not in dict.sqlite:")
+        for m in missing:
+            print(f"  - {m}")
 
     if not dict_ids:
         print("ERROR: No matching dictionaries found.")
         return 1
 
-    dname_idx = {n: i for i, n in enumerate(CORE_DICTS)}
+    dname_idx = {n: i for i, n in enumerate(core_dicts)}
     phs = ",".join(str(k) for k in dict_ids.keys())
 
-    print(f"Core dicts: {len(dict_ids)} — {', '.join(CORE_DICTS)}")
+    print(f"Core dicts: {len(dict_ids)} — {', '.join(core_dicts)}")
     print(f"Snippet length: {SNIPPET_LEN} chars")
     print("Building index...")
 
@@ -85,7 +108,7 @@ def main() -> int:
 
     print(f"  {len(index):,} headwords, {count:,} snippets")
 
-    data = {"d": CORE_DICTS, "i": index}
+    data = {"d": core_dicts, "i": index}
     raw = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
     out_json = DOCS_DIR / "zone_a.json"

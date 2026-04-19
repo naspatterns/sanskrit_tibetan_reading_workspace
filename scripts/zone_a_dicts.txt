@@ -1,0 +1,12 @@
+# Zone A core dictionaries — one per line, comments (#) ignored.
+# These dicts provide the 50-char snippet shown in Phase 0 (instant Zone A).
+# Keep the list small (3-5 dicts) to control zone_a.json size; each added
+# dict roughly adds ~5MB raw JSON.
+#
+# Order doesn't matter; zone_a.json stores dicts in the order they appear here.
+#
+# After editing: run `python3 scripts/build_zone_a.py` then bump ?v= in index.html.
+
+mwse.dict
+macdse.dict
+tib_02-RangjungYeshe

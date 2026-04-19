@@ -25,11 +25,22 @@ import gzip
 import json
 import sqlite3
 import sys
+import unicodedata
 from pathlib import Path
 
 BUILD_DIR = Path(__file__).resolve().parent.parent / "build"
 DOCS_DIR = Path(__file__).resolve().parent.parent / "docs"
 BILEX_DB = BUILD_DIR / "bilex.sqlite"
+
+
+def js_normalize(s: str) -> str:
+    """Mirror JS normalize(): NFD + strip combining marks + lowercase + trim.
+    Must match docs/bilex.js and docs/lookup.js normalize() exactly."""
+    if not s:
+        return ""
+    nfd = unicodedata.normalize("NFD", s)
+    no_marks = "".join(ch for ch in nfd if not unicodedata.combining(ch))
+    return no_marks.lower().strip()
 
 
 def main() -> int:
@@ -52,14 +63,20 @@ def main() -> int:
     zh_idx: dict[str, list[int]] = {}
 
     def add(skt_norm: str, tib_norm: str, zh_norm: str, entry: list) -> None:
+        # Re-normalize keys through JS-equivalent function so the index is
+        # guaranteed to match what the browser computes at query time.
+        # (Some upstream data has non-normalized values in *_norm columns.)
+        skt_key = js_normalize(skt_norm)
+        tib_key = js_normalize(tib_norm)
+        zh_key = js_normalize(zh_norm)
         i = len(entries)
         entries.append(entry)
-        if skt_norm:
-            skt_idx.setdefault(skt_norm, []).append(i)
-        if tib_norm:
-            tib_idx.setdefault(tib_norm, []).append(i)
-        if zh_norm:
-            zh_idx.setdefault(zh_norm, []).append(i)
+        if skt_key:
+            skt_idx.setdefault(skt_key, []).append(i)
+        if tib_key:
+            tib_idx.setdefault(tib_key, []).append(i)
+        if zh_key:
+            zh_idx.setdefault(zh_key, []).append(i)
 
     def trim(e: list) -> list:
         """Remove trailing empty/None fields."""

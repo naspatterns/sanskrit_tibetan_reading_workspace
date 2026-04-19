@@ -62,12 +62,27 @@
     return lo;
   }
 
-  // In-memory prefix search — instant, no DB needed
+  /**
+   * In-memory prefix search over headwords.json.
+   * @param {string} prefix - Raw user input (gets normalized).
+   * @param {number} [limit=200] - Max results. Clamped to [1, 1000].
+   * @returns {string[]} Matching headword_norm strings (exact match excluded).
+   *
+   * Edge cases:
+   *   - empty/whitespace prefix → []
+   *   - 1-char prefix → [] (too broad, would match tens of thousands)
+   *   - index not yet loaded → []
+   */
   function searchPartial(prefix, limit) {
     if (!acIndex || !prefix) return [];
-    limit = limit || 200;
+    // Clamp limit to sane bounds
+    limit = Math.max(1, Math.min(limit || 200, 1000));
     const norm = normalize(prefix);
     if (!norm) return [];
+    // Guard against runaway scans on 1-char Latin queries. CJK single chars
+    // are semantically complete words so they're allowed.
+    const isCJK = /[\u4e00-\u9fff]/.test(norm);
+    if (norm.length < 2 && !isCJK) return [];
     const start = lowerBound(norm);
     const results = [];
     for (let i = start; i < acIndex.length && results.length < limit; i++) {

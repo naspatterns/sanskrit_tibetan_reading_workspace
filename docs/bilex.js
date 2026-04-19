@@ -68,9 +68,16 @@
     return lo;
   }
 
-  // Lookup by index key type ('k', 't', or 'z')
+  /**
+   * Lookup by index key type.
+   * @param {'k'|'t'|'z'} keyType - k=skt_norm, t=tib_norm, z=zh_norm
+   * @param {string} term - Raw user input (gets normalized).
+   * @param {number} limit - Max results. Clamped to [1, 1000].
+   * @returns {object[]} Merged results with source priority applied.
+   */
   function lookup(keyType, term, limit) {
     if (!indexData || !term) return [];
+    limit = Math.max(1, Math.min(limit || 100, 1000));
     const norm = normalize(term);
     if (!norm) return [];
 
