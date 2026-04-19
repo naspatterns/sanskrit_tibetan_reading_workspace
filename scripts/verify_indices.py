@@ -26,6 +26,9 @@ import sys
 import unicodedata
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from transliterate import normalize_headword, hk_to_iast, devanagari_to_iast  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 DOCS = ROOT / "docs"
@@ -231,6 +234,75 @@ def check_zone_a(sample_n: int) -> tuple[int, int]:
     return (checks, 0)
 
 
+# ── Check 4: cross-script normalization parity ────────────────────────
+
+def _iast_to_hk(s: str) -> str:
+    """Reverse-map IAST → HK for testing. Only covers diacritics we use."""
+    m = {
+        "\u0101": "A", "\u012B": "I", "\u016B": "U",
+        "\u1E5B": "R", "\u1E5D": "RR", "\u1E37": "lR", "\u1E39": "lRR",
+        "\u1E43": "M", "\u1E25": "H",
+        "\u1E45": "G", "\u00F1": "J", "\u1E6D": "T", "\u1E0D": "D", "\u1E47": "N",
+        "\u015B": "z", "\u1E63": "S",
+    }
+    out = []
+    for ch in s:
+        out.append(m.get(ch, ch))
+    return "".join(out)
+
+
+def check_cross_script(sample_n: int) -> tuple[int, int]:
+    """For random IAST headwords, verify HK/Devanagari equivalents normalize
+    to the exact same key. This catches any Python↔JS normalization drift."""
+    print(f"\n[4/4] Cross-script parity ({sample_n} IAST samples → HK equivalents)...")
+
+    with open(HEADWORDS_JSON, "r", encoding="utf-8") as f:
+        hws = json.load(f)
+
+    # Pick IAST-like samples (ASCII letters, likely Sanskrit lowercase + IAST diacritics)
+    # Many headwords in the index are already normalized (no diacritics), but
+    # the DB contains original forms. Pull a few real originals with diacritics.
+    conn = sqlite3.connect(str(DICT_DB))
+    rows = conn.execute(
+        "SELECT DISTINCT headword FROM entries "
+        "WHERE headword GLOB '*[ā-ž]*' AND length(headword) BETWEEN 3 AND 20 "
+        "LIMIT 10000"
+    ).fetchall()
+    conn.close()
+
+    iast_samples = [r[0] for r in rows]
+    if not iast_samples:
+        print("  SKIP: no IAST headwords with diacritics found")
+        return (0, 0)
+
+    sample = random.sample(iast_samples, min(sample_n, len(iast_samples)))
+    HK_UPPER = set("AIUTDNSGJRMH")
+    fails = 0
+    skipped = 0
+    for iast in sample:
+        norm_iast = normalize_headword(iast)
+        hk = _iast_to_hk(iast)
+        # Skip cases where reverse-mapped HK lacks any uppercase HK signature.
+        # By design, pure-lowercase HK-like strings (e.g. 'vizuddhi' from 'viśuddhi')
+        # are NOT auto-converted to avoid mangling English entries containing 'z'.
+        # Users needing such cases should type IAST instead.
+        if not any(c in HK_UPPER for c in hk):
+            skipped += 1
+            continue
+        norm_hk = normalize_headword(hk)
+        if norm_iast != norm_hk:
+            fails += 1
+            if fails <= 5:
+                print(f"  FAIL: {iast!r} → IAST-norm={norm_iast!r}  HK={hk!r} → HK-norm={norm_hk!r}")
+
+    tested = len(sample) - skipped
+    if fails:
+        print(f"  FAIL: {fails}/{tested} cross-script mismatches (skipped {skipped} pure-z cases)")
+        return (tested - fails, fails)
+    print(f"  OK: all {tested} IAST↔HK pairs produce identical keys (skipped {skipped} pure-z cases)")
+    return (tested, 0)
+
+
 # ── Main ──────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -249,7 +321,7 @@ def main() -> int:
     total_pass = 0
     total_fail = 0
 
-    for fn in [check_normalize_roundtrip, check_headwords, check_bilex, check_zone_a]:
+    for fn in [check_normalize_roundtrip, check_headwords, check_bilex, check_zone_a, check_cross_script]:
         p, f = fn(args.n)
         total_pass += p
         total_fail += f

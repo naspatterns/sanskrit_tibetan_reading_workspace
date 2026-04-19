@@ -21,7 +21,12 @@
   // Pre-sorted key arrays for binary-search prefix scanning
   let sortedKeys = null; // { k: [], t: [], z: [] }
 
+  // Full normalization: detect script → IAST → NFD + strip + lowercase.
+  // Matches Python transliterate.normalize_headword() so user input in any
+  // of IAST/HK/Devanagari resolves to the same index key.
   function normalize(s) {
+    if (!s) return "";
+    if (window.Translit) return window.Translit.normalizeHeadword(s);
     return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
   }
 

@@ -154,8 +154,12 @@
     return contentWorkerPromise;
   }
 
-  // NFD + strip combining + lowercase
+  // Full normalization pipeline: detect Devanagari/HK/IAST → IAST →
+  // NFD + strip combining marks + lowercase. Matches transliterate.normalize_headword().
+  // Falls back to plain NFD lowercase if Translit isn't loaded (e.g. during tests).
   function normalize(s) {
+    if (!s) return "";
+    if (window.Translit) return window.Translit.normalizeHeadword(s);
     return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
   }
 
