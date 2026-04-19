@@ -191,13 +191,13 @@ function renderZoneA(exactRows, bilexRows, searchTerm) {
   parts.push(`<div class="qa-lines">`);
   for (const [dict, r] of summaryEntries) {
     const meta = window.DictNames.label(dict);
-    const shortLabel = meta.label.replace(/\s*\(.*\)$/, "").replace(/Skt\u2192|Eng\u2192/, "");
+    const label = window.DictNames.shortLabel(meta);
     const bodyText = (r.body_ko || r.body || "").replace(/\n/g, " ").trim();
     const snippet = bodyText.length > 150 ? bodyText.slice(0, 150) + "\u2026" : bodyText;
     const groupColor = window.DictNames.DISPLAY_GROUPS[window.DictNames.getDisplayGroupIndex(meta)]?.color || "#999";
     parts.push(
       `<div class="qa-line" data-dict="${escapeHtml(dict)}">
-         <span class="qa-dict-tag" style="border-color:${safeColor(groupColor)}">${escapeHtml(shortLabel)}</span>
+         <span class="qa-dict-tag" style="border-color:${safeColor(groupColor)}">${escapeHtml(label)}</span>
          <span class="qa-snippet">${escapeHtml(snippet)}</span>
        </div>`
     );
@@ -237,11 +237,11 @@ function renderZoneAInstant(searchTerm, bilexRows) {
   parts.push(`<div class="qa-lines">`);
   for (const { dict, snippet } of snippets) {
     const meta = window.DictNames.label(dict);
-    const shortLabel = meta.label.replace(/\s*\(.*\)$/, "").replace(/Skt\u2192|Eng\u2192/, "");
+    const label = window.DictNames.shortLabel(meta);
     const groupColor = window.DictNames.DISPLAY_GROUPS[window.DictNames.getDisplayGroupIndex(meta)]?.color || "#999";
     parts.push(
       `<div class="qa-line" data-dict="${escapeHtml(dict)}">
-         <span class="qa-dict-tag" style="border-color:${safeColor(groupColor)}">${escapeHtml(shortLabel)}</span>
+         <span class="qa-dict-tag" style="border-color:${safeColor(groupColor)}">${escapeHtml(label)}</span>
          <span class="qa-snippet">${escapeHtml(snippet)}\u2026</span>
        </div>`
     );
@@ -865,7 +865,8 @@ async function search() {
     ].join("");
 
     const ms0 = Math.round(performance.now() - t0);
-    setStatus(`\uc989\uc2dc \uacb0\uacfc \u00b7 ${ms0}ms \u2014 \uc804\ubb38 \ub85c\ub529 \uc911...`);
+    const phase0Label = ms0 < 100 ? "\uc989\uc2dc" : `${ms0}ms`;
+    setStatus(`${phase0Label} \u00b7 \uc804\ubb38 \ub85c\ub529 \uc911...`);
 
     // ── Phase 1: DB exact matches (for Zone C body loading) ──
     const exactRows = await window.Lookup.searchExact(term, { limit: 500 });

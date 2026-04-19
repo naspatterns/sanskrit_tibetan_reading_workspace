@@ -1,11 +1,15 @@
 // bilex.js — Trilingual lexicon lookup (Skt↔Tib↔Zh) via in-memory JSON index.
 // Exposes window.Bilex = { init(), lookupTib(wylie), lookupSkt(iast), lookupZh(zh) }.
 //
-// Loads bilex_index.json at startup (~19MB raw, ~6MB gzipped).
-// All lookups are instant O(1) hash-map reads — no HTTP Range requests.
+// Loads bilex_index.json at startup (~25MB raw, ~6MB gzipped).
+// All lookups are instant:
+//   - exact match: O(1) hash-map lookup
+//   - prefix match: O(log N + K) binary search on pre-sorted keys
+// Source priority is derived from indexData.s array order (set at build time),
+// so new sources get a deterministic position without code changes.
 //
 // Index format:
-//   s: source names array
+//   s: source names array (order = priority)
 //   e: entries array — each [skt_iast, tib_wylie, src_idx, category?, zh?, entry_num?]
 //   k: skt_norm → [entry_indices]
 //   t: tib_norm → [entry_indices]
@@ -14,6 +18,8 @@
 (function () {
   let indexData = null; // loaded JSON index
   let initPromise = null;
+  // Pre-sorted key arrays for binary-search prefix scanning
+  let sortedKeys = null; // { k: [], t: [], z: [] }
 
   function normalize(s) {
     return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
@@ -28,6 +34,12 @@
       })
       .then((data) => {
         indexData = data;
+        // Pre-sort keys once — subsequent prefix scans are O(log N + K)
+        sortedKeys = {
+          k: Object.keys(data.k).sort(),
+          t: Object.keys(data.t).sort(),
+          z: Object.keys(data.z).sort(),
+        };
       });
     return initPromise;
   }
@@ -45,24 +57,41 @@
     };
   }
 
-  // Lookup by index key (skt_norm, tib_norm, or zh_norm)
-  function lookup(indexMap, term, limit) {
+  // Binary search: first index where sortedArr[i] >= target
+  function lowerBound(sortedArr, target) {
+    let lo = 0, hi = sortedArr.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (sortedArr[mid] < target) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  // Lookup by index key type ('k', 't', or 'z')
+  function lookup(keyType, term, limit) {
     if (!indexData || !term) return [];
     const norm = normalize(term);
     if (!norm) return [];
 
+    const indexMap = indexData[keyType];
+    const sortedArr = sortedKeys[keyType];
     const sources = indexData.s;
     const entries = indexData.e;
     const results = [];
     const seen = new Set();
 
-    // Exact match
+    function makeKey(e) {
+      return `${(e[0] || "").toLowerCase()}|${(e[1] || "").toLowerCase()}|${e[2]}`;
+    }
+
+    // Exact match — O(1) hash lookup
     const exactIndices = indexMap[norm];
     if (exactIndices) {
       for (const i of exactIndices) {
         if (results.length >= limit) break;
         const e = entries[i];
-        const key = `${(e[0] || "").toLowerCase()}|${(e[1] || "").toLowerCase()}|${e[2]}`;
+        const key = makeKey(e);
         if (!seen.has(key)) {
           seen.add(key);
           results.push(toEntry(e, sources[e[2]], true));
@@ -70,35 +99,34 @@
       }
     }
 
-    // Prefix matches (scan nearby keys)
+    // Prefix matches — O(log N) seek + linear walk while startsWith
     if (results.length < limit) {
-      const keys = Object.keys(indexMap);
-      for (const k of keys) {
-        if (k === norm) continue; // skip exact (already added)
-        if (k.startsWith(norm) && results.length < limit) {
-          for (const i of indexMap[k]) {
-            if (results.length >= limit) break;
-            const e = entries[i];
-            const key = `${(e[0] || "").toLowerCase()}|${(e[1] || "").toLowerCase()}|${e[2]}`;
-            if (!seen.has(key)) {
-              seen.add(key);
-              results.push(toEntry(e, sources[e[2]], false));
-            }
+      const start = lowerBound(sortedArr, norm);
+      for (let i = start; i < sortedArr.length && results.length < limit; i++) {
+        const k = sortedArr[i];
+        if (!k.startsWith(norm)) break;
+        if (k === norm) continue; // already handled as exact
+        for (const ei of indexMap[k]) {
+          if (results.length >= limit) break;
+          const e = entries[ei];
+          const key = makeKey(e);
+          if (!seen.has(key)) {
+            seen.add(key);
+            results.push(toEntry(e, sources[e[2]], false));
           }
         }
       }
     }
 
-    // Sort: exact first, then by source priority
-    const SOURCE_ORDER = {
-      mahavyutpatti: 0, "84000": 1, negi: 2, hopkins: 3,
-      "lokesh-chandra": 4, "yogacarabhumi-idx": 5, "nti-reader": 6,
+    // Sort: exact first, then by source priority (indexData.s array order).
+    // Unknown sources get +Infinity priority so they sort last but stably.
+    const priority = (src) => {
+      const idx = sources.indexOf(src);
+      return idx >= 0 ? idx : Number.MAX_SAFE_INTEGER;
     };
     results.sort((a, b) => {
       if (b.exact !== a.exact) return b.exact - a.exact;
-      const sa = SOURCE_ORDER[a.source] ?? 9;
-      const sb = SOURCE_ORDER[b.source] ?? 9;
-      return sa - sb;
+      return priority(a.source) - priority(b.source);
     });
 
     return results;
@@ -106,17 +134,17 @@
 
   async function lookupSkt(iast, opts = {}) {
     await init();
-    return lookup(indexData.k, iast, opts.limit || 100);
+    return lookup("k", iast, opts.limit || 100);
   }
 
   async function lookupTib(wylie, opts = {}) {
     await init();
-    return lookup(indexData.t, wylie, opts.limit || 100);
+    return lookup("t", wylie, opts.limit || 100);
   }
 
   async function lookupZh(zh, opts = {}) {
     await init();
-    return lookup(indexData.z, zh, opts.limit || 100);
+    return lookup("z", zh, opts.limit || 100);
   }
 
   window.Bilex = { init, lookupTib, lookupSkt, lookupZh, normalize };

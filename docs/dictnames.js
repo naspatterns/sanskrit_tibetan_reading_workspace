@@ -242,5 +242,12 @@
              tier: 3, defLang: "mixed", subgroup: "domain", family: null, source: null };
   }
 
-  window.DictNames = { label, DISPLAY_GROUPS, getDisplayGroupIndex };
+  // Short form of dict label: strips parenthetical suffix "(...)" and
+  // "Skt→" / "Eng→" prefixes. Used in Zone A summary lines where space is tight.
+  function shortLabel(meta) {
+    if (!meta || !meta.label) return "";
+    return meta.label.replace(/\s*\(.*\)$/, "").replace(/Skt\u2192|Eng\u2192/g, "");
+  }
+
+  window.DictNames = { label, shortLabel, DISPLAY_GROUPS, getDisplayGroupIndex };
 })();

@@ -11,6 +11,10 @@
 <meta property="og:description" content="Multi-dictionary Sanskrit–Tibetan–Chinese reading workspace with 135 dictionaries.">
 <meta property="og:type" content="website">
 <link rel="preload" href="sql-wasm.wasm" as="fetch" type="application/wasm" crossorigin>
+<!-- In-memory search indices — load in parallel with JS/CSS for instant first search -->
+<link rel="preload" href="headwords.json" as="fetch" type="application/json" crossorigin>
+<link rel="preload" href="bilex_index.json" as="fetch" type="application/json" crossorigin>
+<link rel="preload" href="zone_a.json" as="fetch" type="application/json" crossorigin>
 <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
@@ -97,11 +101,11 @@
 </footer>
 
 <script src="vendor/index.js" integrity="sha384-5qk6GQWgVBG/l7V06WbohoowHyJEIsLh6E/83WVlhQDFH8EKMe1yAWpEmemrSUgn" crossorigin="anonymous"></script>
-<script src="dictnames.js?v=19"></script>
-<script src="lookup.js?v=19"></script>
-<script src="bilex.js?v=19"></script>
-<script src="reader.js?v=19"></script>
-<script src="vocab.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="dictnames.js?v=20"></script>
+<script src="lookup.js?v=20"></script>
+<script src="bilex.js?v=20"></script>
+<script src="reader.js?v=20"></script>
+<script src="vocab.js?v=20"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>
